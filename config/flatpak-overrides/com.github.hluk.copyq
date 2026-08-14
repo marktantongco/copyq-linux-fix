@@ -1,0 +1,9 @@
+[Context]
+filesystems=xdg-config/gtk-3.0:ro;xdg-config/gtk-4.0:ro
+
+[Environment]
+# CRITICAL: CopyQ must use XWayland for clipboard monitoring.
+# GNOME mutter does NOT implement wl-data-control protocol.
+# These override the system-wide wayland.conf for CopyQ only.
+QT_QPA_PLATFORM=xcb
+GDK_BACKEND=x11

@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CopyQ Linux Fix — Clipboard Manager for Ubuntu 26.04 Wayland</title>
+    <meta name="description" content="Install CopyQ 16.0.0 clipboard manager on Ubuntu 26.04 LTS with full Wayland/XWayland compatibility. Unified installer with diagnostics.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <style>
+        /* ── Design Tokens ────────────────────────────────────── */
+        :root {
+            --bg: #0a0a0f;
+            --bg-elevated: #12121a;
+            --bg-card: #16161f;
+            --bg-code: #1a1a26;
+            --fg: #e4e4ef;
+            --fg-muted: #8b8ba3;
+            --fg-dim: #5a5a72;
+            --accent: #7c6aef;
+            --accent-soft: rgba(124,106,239,0.12);
+            --accent-glow: rgba(124,106,239,0.25);
+            --green: #4ade80;
+            --green-soft: rgba(74,222,128,0.1);
+            --red: #f87171;
+            --red-soft: rgba(248,113,113,0.1);
+            --yellow: #fbbf24;
+            --yellow-soft: rgba(251,191,36,0.1);
+            --blue: #60a5fa;
+            --blue-soft: rgba(96,165,250,0.1);
+            --orange: #fb923c;
+            --border: rgba(255,255,255,0.06);
+            --border-accent: rgba(124,106,239,0.3);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --shadow-accent: 0 0 40px rgba(124,106,239,0.15);
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+        }
+
+        /* ── Reset & Base ───────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--fg);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+        a { color: var(--accent); text-decoration: none; transition: color 0.2s; }
+        a:hover { color: #a594ff; }
+        code, pre { font-family: var(--font-mono); }
+
+        /* ── Ambient Background ───────────────────────────────── */
+        .ambient {
+            position: fixed; inset: 0; z-index: -1; overflow: hidden;
+        }
+        .ambient::before {
+            content: '';
+            position: absolute;
+            top: -30%; left: -10%;
+            width: 60%; height: 60%;
+            background: radial-gradient(circle, rgba(124,106,239,0.08) 0%, transparent 70%);
+            animation: drift 20s ease-in-out infinite;
+        }
+        .ambient::after {
+            content: '';
+            position: absolute;
+            bottom: -20%; right: -10%;
+            width: 50%; height: 50%;
+            background: radial-gradient(circle, rgba(96,165,250,0.06) 0%, transparent 70%);
+            animation: drift 25s ease-in-out infinite reverse;
+        }
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(40px, -30px); }
+        }
+
+        /* ── Layout ───────────────────────────────────────────── */
+        .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+        section { padding: 80px 0; }
+
+        /* ── Navigation ──────────────────────────────────────── */
+        nav {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(10,10,15,0.85);
+            backdrop-filter: blur(16px) saturate(180%);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+        }
+        .nav-inner {
+            max-width: 900px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between;
+            height: 56px;
+        }
+        .nav-logo {
+            font-weight: 700; font-size: 15px; letter-spacing: -0.3px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .nav-logo .icon { font-size: 18px; }
+        .nav-links { display: flex; gap: 6px; }
+        .nav-links a {
+            padding: 6px 14px; border-radius: var(--radius-sm);
+            font-size: 13px; color: var(--fg-muted);
+            transition: all 0.2s;
+        }
+        .nav-links a:hover {
+            color: var(--fg);
+            background: var(--accent-soft);
+        }
+
+        /* ── Hero ─────────────────────────────────────────────── */
+        .hero {
+            text-align: center;
+            padding: 100px 0 60px;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 16px; border-radius: 100px;
+            background: var(--accent-soft);
+            border: 1px solid var(--border-accent);
+            font-size: 13px; color: var(--accent);
+            font-weight: 500;
+            margin-bottom: 24px;
+        }
+        .hero-badge .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--green);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .hero h1 {
+            font-size: clamp(36px, 6vw, 56px);
+            font-weight: 800; letter-spacing: -1.5px;
+            line-height: 1.1;
+            margin-bottom: 16px;
+        }
+        .hero h1 .gradient {
+            background: linear-gradient(135deg, var(--accent), var(--blue));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero p {
+            font-size: 17px; color: var(--fg-muted); max-width: 580px;
+            margin: 0 auto 32px;
+        }
+        .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+        /* ── Buttons ─────────────────────────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 22px; border-radius: var(--radius-sm);
+            font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+            border: none; text-decoration: none;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: var(--shadow-accent);
+        }
+        .btn-primary:hover {
+            background: #8b7af5;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 0 60px rgba(124,106,239,0.25);
+        }
+        .btn-ghost {
+            background: var(--bg-card);
+            color: var(--fg);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { border-color: var(--fg-dim); color: white; }
+
+        /* ── Badges Row ───────────────────────────────────────── */
+        .badges {
+            display: flex; justify-content: center; gap: 10px;
+            flex-wrap: wrap; margin-top: 32px;
+        }
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 100px;
+            font-size: 12px; font-weight: 500;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--fg-muted);
+        }
+        .badge .tag { font-weight: 700; }
+        .badge .tag.green { color: var(--green); }
+        .badge .tag.orange { color: var(--orange); }
+        .badge .tag.blue { color: var(--blue); }
+        .badge .tag.purple { color: var(--accent); }
+
+        /* ── Section Headers ──────────────────────────────────── */
+        .section-label {
+            display: inline-block;
+            font-size: 12px; font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+        .section-title {
+            font-size: clamp(26px, 4vw, 34px);
+            font-weight: 700; letter-spacing: -0.8px;
+            margin-bottom: 16px;
+        }
+        .section-desc {
+            color: var(--fg-muted); font-size: 16px;
+            max-width: 640px; margin-bottom: 40px;
+        }
+
+        /* ── Cards ────────────────────────────────────────────── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            transition: all 0.25s ease;
+        }
+        .card:hover {
+            border-color: var(--border-accent);
+            box-shadow: var(--shadow-accent);
+        }
+        .card-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; margin-bottom: 16px;
+        }
+        .card-icon.purple { background: var(--accent-soft); }
+        .card-icon.green { background: var(--green-soft); }
+        .card-icon.blue { background: var(--blue-soft); }
+        .card-icon.yellow { background: var(--yellow-soft); }
+        .card-icon.red { background: var(--red-soft); }
+        .card h3 {
+            font-size: 17px; font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .card p { color: var(--fg-muted); font-size: 14px; }
+
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+
+        /* ── Architecture Diagram ─────────────────────────────── */
+        .arch-box {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            overflow-x: auto;
+            margin: 0 -4px;
+        }
+        .arch-diagram {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--fg-muted);
+            white-space: pre;
+        }
+        .arch-diagram .highlight { color: var(--accent); font-weight: 700; }
+        .arch-diagram .green { color: var(--green); }
+        .arch-diagram .yellow { color: var(--yellow); }
+        .arch-diagram .red { color: var(--red); }
+        .arch-diagram .blue { color: var(--blue); }
+
+        /* ── Code Blocks ──────────────────────────────────────── */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            overflow-x: auto;
+            position: relative;
+        }
+        .code-block code {
+            font-size: 13px; line-height: 1.7;
+            color: var(--fg);
+        }
+        .code-block .comment { color: var(--fg-dim); }
+        .code-block .cmd { color: var(--green); }
+        .code-block .flag { color: var(--blue); }
+        .code-block .url { color: var(--orange); }
+        .code-block .string { color: var(--yellow); }
+        .copy-btn {
+            position: absolute; top: 10px; right: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 11px; color: var(--fg-muted);
+            cursor: pointer; transition: all 0.2s;
+            font-family: var(--font);
+        }
+        .copy-btn:hover { color: var(--fg); border-color: var(--fg-dim); }
+        .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+        /* ── Table ────────────────────────────────────────────── */
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+        table {
+            width: 100%; border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            text-align: left;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--fg-muted);
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:last-child td { border-bottom: none; }
+        .status {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-weight: 600; font-size: 13px;
+        }
+        .status.yes { color: var(--green); }
+        .status.partial { color: var(--yellow); }
+        .status.no { color: var(--red); }
+        .status::before {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* ── Steps ────────────────────────────────────────────── */
+        .steps { display: flex; flex-direction: column; gap: 4px; }
+        .step {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+        .step-num {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700;
+            background: var(--accent-soft);
+            color: var(--accent);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .step h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+        .step p { color: var(--fg-muted); font-size: 14px; }
+
+        /* ── Divider ──────────────────────────────────────────── */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
+            margin: 0;
+        }
+
+        /* ── Footer ───────────────────────────────────────────── */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--fg-dim);
+            font-size: 13px;
+        }
+        footer a { color: var(--fg-muted); }
+
+        /* ── Responsive ───────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .nav-links { display: none; }
+            .hero { padding: 60px 0 40px; }
+            section { padding: 48px 0; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-inner">
+            <div class="nav-logo">
+                <span class="icon">📋</span>
+                <span>copyq-linux-fix</span>
+            </div>
+            <div class="nav-links">
+                <a href="#problem">Problem</a>
+                <a href="#architecture">Architecture</a>
+                <a href="#install">Install</a>
+                <a href="#compatibility">Compatibility</a>
+                <a href="#troubleshooting">Troubleshoot</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                Works on Ubuntu 26.04 LTS (Wayland-only)
+            </div>
+            <h1>CopyQ Clipboard Manager<br><span class="gradient">Fixed for Wayland</span></h1>
+            <p>
+                Ubuntu 26.04 removed Xorg entirely. CopyQ can't natively monitor
+                the clipboard on GNOME 50's Wayland. This is the complete workaround.
+            </p>
+            <div class="hero-actions">
+                <a href="#install" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Install Now
+                </a>
+                <a href="https://github.com/marktantongco/copyq-linux-fix" class="btn btn-ghost">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    GitHub
+                </a>
+            </div>
+            <div class="badges">
+                <span class="badge"><span class="tag orange">Ubuntu 26.04</span> LTS</span>
+                <span class="badge"><span class="tag blue">GNOME 50</span> Wayland-only</span>
+                <span class="badge"><span class="tag green">CopyQ</span> 16.0.0</span>
+                <span class="badge"><span class="tag purple">Flatpak</span> Flathub</span>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Problem Section -->
+    <section id="problem">
+        <div class="container">
+            <span class="section-label">The Problem</span>
+            <h2 class="section-title">Why CopyQ Breaks on Ubuntu 26.04</h2>
+            <p class="section-desc">
+                Ubuntu 26.04 LTS is the first LTS with <strong>no Xorg session</strong>. GNOME 50 runs
+                exclusively on Wayland. And GNOME's compositor (mutter) deliberately blocks third-party
+                clipboard managers.
+            </p>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-icon red">🚫</div>
+                    <h3>No wl-data-control</h3>
+                    <p>
+                        GNOME's mutter does NOT implement the Wayland clipboard protocol.
+                        This is a privacy-by-design decision. No third-party app can monitor
+                        clipboard events on GNOME Wayland.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon yellow">⚠️</div>
+                    <h3>PPA Stuck at v13</h3>
+                    <p>
+                        The official CopyQ PPA (ppa:hluk/copyq) is still at version 13.0.0.
+                        Version 16.0.0 with improved Wayland support and per-MIME OOM
+                        protection is only available via Flatpak/Flathub.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon blue">🔧</div>
+                    <h3>No Global Shortcuts</h3>
+                    <p>
+                        GNOME on Wayland restricts global keyboard shortcut registration.
+                        CopyQ's built-in hotkey system doesn't work. We use GNOME custom
+                        shortcuts as a workaround.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon purple">🖥️</div>
+                    <h3>No System Tray</h3>
+                    <p>
+                        GNOME removed legacy StatusNotifier tray support. CopyQ's tray icon
+                        won't appear without extensions. Shortcuts provide the alternative.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Architecture Section -->
+    <section id="architecture">
+        <div class="container">
+            <span class="section-label">The Solution</span>
+            <h2 class="section-title">XWayland Bridge Architecture</h2>
+            <p class="section-desc">
+                CopyQ is forced through the <strong>XWayland bridge</strong> (not native Wayland) so it
+                can monitor the X11 clipboard. Every other app stays on native Wayland.
+            </p>
+            <div class="arch-box">
+                <div class="arch-diagram"><span class="highlight">Ubuntu 26.04 LTS</span>  (GNOME 50 / Wayland-only / No Xorg)
+    │
+    ├── <span class="green">Native Wayland Apps</span>
+    │   Firefox, GNOME Terminal, VS Code, LibreOffice
+    │   Protocol: <span class="green">wayland</span> (best performance, secure)
+    │   Clipboard: <span class="red">private, no API</span>
+    │
+    ├── <span class="blue">XWayland Bridge</span>  (X11 compatibility layer, auto-started)
+    │   Protocol: wayland → compositor, X11 → apps
+       │   │
+    │   ├── X11 Apps:  Wine, old Qt5, legacy GTK2
+    │   │
+    │   └── <span class="highlight">CopyQ 16.0.0</span>  (Flatpak, forced XWayland)
+    │       <span class="yellow">Monitors X11 clipboard bridge</span>
+    │       <span class="yellow">Clipboard portal permission granted</span>
+    │       <span class="yellow">GNOME shortcuts: Ctrl+Alt+V (toggle)</span>
+    │       <span class="yellow">Autostart at login with 3s delay</span>
+    │
+    └── <span class="red">xdotool / xmacro</span> → <span class="red">BROKEN</span> → use <span class="green">ydotool</span> instead</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Installation Section -->
+    <section id="install">
+        <div class="container">
+            <span class="section-label">Installation</span>
+            <h2 class="section-title">Two Ways to Install</h2>
+            <p class="section-desc">
+                Option A is recommended for standard Ubuntu 26.04 desktops.
+                Option B works without sudo or Flatpak.
+            </p>
+
+            <!-- Option A -->
+            <div class="card" style="margin-bottom: 24px; border-color: var(--border-accent);">
+                <h3 style="color: var(--accent); margin-bottom: 16px;">Option A: Unified Flatpak Installer (Recommended)</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code><span class="comment"># Clone and run the unified installer</span>
+<span class="cmd">git</span> clone https://github.com/marktantongco/copyq-linux-fix.git
+<span class="cmd">cd</span> copyq-linux-fix
+<span class="cmd">chmod</span> <span class="flag">+x</span> install.sh scripts/*.sh
+<span class="cmd">./install.sh</span>
+
+<span class="comment"># Log out and back in, then:</span>
+<span class="comment"># Ctrl+Alt+V       → Toggle CopyQ</span>
+<span class="comment"># Ctrl+Alt+Shift+V  → Show CopyQ menu</span></code>
+                </div>
+                <div class="steps" style="margin-top: 20px;">
+                    <div class="step">
+                        <div class="step-num">1</div>
+                        <div><h4>System Check</h4><p>Verifies Ubuntu 26.04, Wayland session, XWayland, Flatpak, disk space, network</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">2</div>
+                        <div><h4>Install CopyQ 16.0.0</h4><p>Installs from Flathub via Flatpak (the only source with v16.0.0)</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">3</div>
+                        <div><h4>Patch Environment</h4><p>Applies wayland.conf — GTK, Qt, SDL, Electron all get correct backends</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">4</div>
+                        <div><h4>Configure Flatpak Override</h4><p>Forces CopyQ through XWayland bridge (QT_QPA_PLATFORM=xcb, GDK_BACKEND=x11)</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">5</div>
+                        <div><h4>Setup GNOME Shortcuts</h4><p>Registers Ctrl+Alt+V and Ctrl+Alt+Shift+V via gsettings</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">6</div>
+                        <div><h4>Enable Autostart</h4><p>Creates .desktop entry with 3-second delay for XWayland initialization</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">7</div>
+                        <div><h4>Post-Install Verification</h4><p>Color-coded pass/fail report on all 15+ checks</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Option B -->
+            <div class="card">
+                <h3 style="color: var(--blue); margin-bottom: 16px;">Option B: Rootless .deb Extractor (No Sudo)</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code><span class="comment"># One-liner: download, extract, run</span>
+<span class="cmd">curl</span> <span class="flag">-fsSL</span> <span class="url">"https://raw.githubusercontent.com/marktantongco/copyq-linux-fix/main/install-copyq.sh"</span> \
+  <span class="flag">-o</span> /tmp/install-copyq.sh && \
+<span class="cmd">chmod</span> <span class="flag">+x</span> /tmp/install-copyq.sh && /tmp/install-copyq.sh
+
+<span class="comment"># Start the service</span>
+<span class="cmd">systemctl</span> <span class="flag">--user enable --now</span> copyq</code>
+                </div>
+            </div>
+
+            <!-- Other modes -->
+            <div class="grid-3" style="margin-top: 20px;">
+                <div class="card" style="padding: 16px;">
+                    <code style="font-size: 13px; color: var(--yellow);">./install.sh --dry-run</code>
+                    <p style="margin-top: 6px; font-size: 13px;">Preview without making changes</p>
+                </div>
+                <div class="card" style="padding: 16px;">
+                    <code style="font-size: 13px; color: var(--blue);">./install.sh --diagnose</code>
+                    <p style="margin-top: 6px; font-size: 13px;">Run diagnostics only</p>
+                </div>
+                <div class="card" style="padding: 16px;">
+                    <code style="font-size: 13px; color: var(--red);">./install.sh --uninstall</code>
+                    <p style="margin-top: 6px; font-size: 13px;">Remove everything</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Compatibility Section -->
+    <section id="compatibility">
+        <div class="container">
+            <span class="section-label">Compatibility</span>
+            <h2 class="section-title">App Compatibility Matrix</h2>
+            <p class="section-desc">
+                How common applications behave on Ubuntu 26.04's Wayland-only desktop.
+            </p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Application</th>
+                            <th>Native Wayland</th>
+                            <th>XWayland</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Firefox</td>
+                            <td><span class="status yes">Yes</span></td>
+                            <td>—</td>
+                            <td>Wayland by default</td>
+                        </tr>
+                        <tr>
+                            <td>GNOME Terminal</td>
+                            <td><span class="status yes">Yes</span></td>
+                            <td>—</td>
+                            <td>Native</td>
+                        </tr>
+                        <tr>
+                            <td>VS Code</td>
+                            <td><span class="status yes">Yes</span></td>
+                            <td>—</td>
+                            <td>Electron Ozone</td>
+                        </tr>
+                        <tr>
+                            <td>LibreOffice</td>
+                            <td><span class="status yes">Yes</span></td>
+                            <td>—</td>
+                            <td>Since v7.6+</td>
+                        </tr>
+                        <tr>
+                            <td><strong>CopyQ 16.0.0</strong></td>
+                            <td><span class="status partial">Partial</span></td>
+                            <td><span class="status yes">Full</span></td>
+                            <td><strong>Needs XWayland bridge</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Wine</td>
+                            <td><span class="status no">No</span></td>
+                            <td><span class="status yes">Yes</span></td>
+                            <td>X11 only</td>
+                        </tr>
+                        <tr>
+                            <td>Steam</td>
+                            <td><span class="status partial">Partial</span></td>
+                            <td><span class="status yes">Yes</span></td>
+                            <td>Proton via XWayland</td>
+                        </tr>
+                        <tr>
+                            <td><code>xdotool</code></td>
+                            <td><span class="status no">No</span></td>
+                            <td><span class="status no">No</span></td>
+                            <td>Use <code>ydotool</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Troubleshooting Section -->
+    <section id="troubleshooting">
+        <div class="container">
+            <span class="section-label">Troubleshooting</span>
+            <h2 class="section-title">Common Issues & Fixes</h2>
+            <p class="section-desc">
+                Known problems and their solutions for CopyQ on Ubuntu 26.04 Wayland.
+            </p>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-icon yellow">📋</div>
+                    <h3>Clipboard not capturing</h3>
+                    <p>
+                        <strong>Expected on GNOME.</strong> Native Wayland clipboard events may
+                        not always bridge to XWayland. Most day-to-day copies work.
+                        This is a GNOME limitation, not a CopyQ bug.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon blue">⌨️</div>
+                    <h3>Shortcuts not working</h3>
+                    <p>
+                        Check Settings &gt; Keyboard &gt; Custom Shortcuts.
+                        Re-run: <code>./scripts/05-setup-shortcuts.sh</code>
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon red">🪟</div>
+                    <h3>Blank/transparent window</h3>
+                    <p>
+                        Force XWayland rendering:
+                        <code>flatpak override --user com.github.hluk.copyq --env=GDK_BACKEND=x11</code>
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon green">🔄</div>
+                    <h3>Broken after system update</h3>
+                    <p>
+                        Re-run the installer or diagnostics:
+                        <code>./install.sh</code> or <code>./scripts/diagnose.sh</code>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Config Section -->
+    <section id="config">
+        <div class="container">
+            <span class="section-label">Configuration</span>
+            <h2 class="section-title">What Gets Installed Where</h2>
+            <div class="code-block">
+                <code><span class="comment"># System-wide: all apps get native Wayland</span>
+<span class="string">~/.config/environment.d/wayland.conf</span>
+    <span class="cmd">GDK_BACKEND</span>=wayland
+    <span class="cmd">QT_QPA_PLATFORM</span>=wayland;xcb
+    <span class="cmd">SDL_VIDEODRIVER</span>=wayland
+    <span class="cmd">ELECTRON_OZONE_PLATFORM_HINT</span>=wayland
+
+<span class="comment"># CopyQ ONLY: forced through XWayland bridge</span>
+<span class="string">~/.local/share/flatpak/overrides/com.github.hluk.copyq</span>
+    <span class="red">QT_QPA_PLATFORM</span>=<span class="red">xcb</span>       <span class="comment"># X11, not Wayland</span>
+    <span class="red">GDK_BACKEND</span>=<span class="red">x11</span>         <span class="comment"># X11, not Wayland</span>
+
+<span class="comment"># Autostart at login</span>
+<span class="string">~/.config/autostart/com.github.hluk.copyq.desktop</span>
+    <span class="cmd">X-GNOME-Autostart-Delay</span>=3   <span class="comment"># Wait for XWayland</span></code>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>
+                <strong>copyq-linux-fix</strong> by
+                <a href="https://github.com/marktantongco">@marktantongco</a>
+                &mdash; Installer: MIT &middot; CopyQ: GPLv3
+            </p>
+            <p style="margin-top: 6px;">
+                <a href="https://github.com/hluk/CopyQ">CopyQ</a> by Lukas Holecek &middot;
+                <a href="https://ubuntu.com/download">Ubuntu 26.04 LTS</a> &middot;
+                <a href="https://wayland.freedesktop.org/">Wayland</a>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Copy button functionality
+        function copyCode(btn) {
+            const codeBlock = btn.parentElement;
+            const code = codeBlock.querySelector('code');
+            const text = code.innerText.replace(/\n$/, '');
+
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const target = document.querySelector(a.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        // Subtle fade-in on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.card, .arch-box, .code-block, .table-wrap').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(16px)';
+            el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

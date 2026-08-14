@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=CopyQ
+Comment=Advanced Clipboard Manager with Editing and Scripting
+Exec=flatpak run com.github.hluk.copyq
+Icon=com.github.hluk.copyq
+Terminal=false
+Categories=Utility;Office;TextTools;
+Keywords=clipboard;manager;history;copy;paste;
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3
+StartupNotify=false
+StartupWMClass=copyq

@@ -1,197 +1,295 @@
-# CopyQ Fix Update for Linux
+# CopyQ Linux Fix — Unified Installer for Ubuntu 26.04 LTS
 
-Rootless installer for [CopyQ](https://github.com/hluk/copyq) on **Ubuntu 24.04 / 26.04 / Debian 12+** — works **without sudo**.
+### Clipboard Manager + Wayland Compatibility + GitHub Pages
 
-## Why this exists
-
-On a default Ubuntu 26.04 desktop:
-
-1. **No Qt6/KDE6 runtime installed.** CopyQ 13.0.0 depends on the entire Qt 6.10 + KDE Frameworks 6 stack. `apt install copyq` pulls ~63 packages but you need `sudo` — and many minimal/container setups don't have it.
-2. **Wayland.** This distro ships a Wayland session. CopyQ is a Qt/xcb app; without a compatibility wrapper it fails to render or integrate with the tray.
-
-This script downloads every needed `.deb`, extracts them into your home directory, and wires up a launcher that forces the Qt **xcb** platform so CopyQ runs cleanly under **XWayland**. No root, no system modifications.
+[![Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04%20LTS-orange?logo=ubuntu)](https://ubuntu.com/download)
+[![GNOME 50](https://img.shields.io/badge/GNOME-50-4A86CF?logo=gnome)](https://www.gnome.org/)
+[![Wayland](https://img.shields.io/badge/Wayland-Only-blue)](https://wayland.freedesktop.org/)
+[![CopyQ 16.0.0](https://img.shields.io/badge/CopyQ-16.0.0-green)](https://github.com/hluk/CopyQ)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## Quick install (copy-ready)
+## The Big Picture
 
-Run these commands one block at a time. Each block is safe to copy-paste whole.
+### Why This Repo Exists
 
-### 1. Download the installer
+Ubuntu 26.04 LTS ("Resolute Raccoon") is the **first Ubuntu LTS to ship GNOME 50 on Wayland-only** — there is no Xorg session on the login screen anymore. This is a fundamental architectural shift that breaks many tools we've relied on for decades, and **clipboard managers are one of the hardest hit**.
 
-```bash
-cd /tmp
-curl -fsSL "https://raw.githubusercontent.com/marktantongco/copyq-linux-fix/main/install-copyq.sh" -o install-copyq.sh
+The core problem: **GNOME's mutter compositor deliberately does not implement the `wl-data-control` protocol** that would allow third-party clipboard managers to monitor clipboard events. This is a privacy-by-design decision — on Wayland, only the focused app and the compositor can read the clipboard.
+
+**CopyQ** is the most powerful open-source clipboard manager available (scripting, tabs, search, editing, image support). But on Ubuntu 26.04's GNOME 50, it cannot natively monitor the clipboard. This repo provides the complete workaround.
+
+### The Solution Architecture
+
+```
+Ubuntu 26.04 LTS (GNOME 50 / Wayland-only / No Xorg)
+    |
+    +-- Native Wayland Apps (Firefox, GNOME Terminal, VS Code)
+    |       Protocol: wayland (clipboard: private, no API)
+    |
+    +-- XWayland Bridge (X11 compatibility layer, auto-started)
+    |       Protocol: wayland to compositor, X11 to apps
+    |       |
+    |       +-- X11 Apps (Wine, old Qt5, legacy GTK2)
+    |       |
+    |       +-- CopyQ 16.0.0 (Flatpak, forced via XWayland)
+    |           Monitors X11 clipboard bridge
+    |           Clipboard portal permission granted
+    |           GNOME shortcuts registered (Ctrl+Alt+V)
+    |           Autostart at login with 3s delay
 ```
 
-### 2. Make it executable
+**The key insight:** We force CopyQ through the **XWayland bridge** (not native Wayland) so it can monitor the X11 clipboard, which still receives events from most applications. Meanwhile, every other app on your system continues using native Wayland for best performance.
 
-```bash
-chmod +x /tmp/install-copyq.sh
-```
+### What's Different About This Repo
 
-### 3. Run the installer (no sudo)
+This repo provides **two complementary installation methods** plus a full GitHub Pages documentation site:
 
-```bash
-/tmp/install-copyq.sh
-```
-
-This takes 1–3 minutes: it downloads ~63 Debian packages, extracts them into your home directory, writes the launcher, desktop entry, and systemd unit, then runs a clipboard round-trip verification.
-
-### 4. Add linger so it starts without login (optional)
-
-```bash
-sudo loginctl enable-linger $USER
-```
-
-### 5. Start CopyQ now and enable autostart
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable --now copyq
-```
-
-### 6. Verify it is running
-
-```bash
-systemctl --user status copyq
-```
-
-Expected: `Active: active (running)`.
-
-### 7. Test the clipboard
-
-```bash
-copyq "copy('hello-from-copyq')"
-sleep 1
-copyq "clipboard()"
-```
-
-Expected output: `hello-from-copyq`.
-
-### 8. Find it in the app menu
-
-Press the **Super** (Windows) key, type `CopyQ`, and launch it. The tray icon appears in the system tray.
+| Method | File | Best For |
+|---|---|---|
+| **Rootless `.deb` extractor** | `install-copyq.sh` | Systems without sudo, containers, minimal installs |
+| **Unified Flatpak installer** | `install.sh` (orchestrator) | Standard Ubuntu 26.04 desktop with Flatpak |
 
 ---
 
-## Install from source
+## Quick Start
+
+### Option A: Unified Flatpak Installer (Recommended for Ubuntu 26.04)
 
 ```bash
 git clone https://github.com/marktantongco/copyq-linux-fix.git
 cd copyq-linux-fix
-./install-copyq.sh
+chmod +x install.sh scripts/*.sh
+./install.sh
+# Log out and back in, then press Ctrl+Alt+V to toggle CopyQ
 ```
 
-The script is idempotent — re-running re-downloads and re-extracts cleanly.
-
----
-
-## Requirements
-
-- Ubuntu 24.04 / 26.04 / Debian 12+ (x86_64 or aarch64)
-- `bash`, `curl`, `dpkg`, `apt-get` (all present by default)
-- **No sudo needed** — everything lives under `$HOME`
-- A running graphical session (X11 or Wayland)
-
----
-
-## Usage
+### Option B: Rootless Installer (No Sudo, No Flatpak)
 
 ```bash
-copyq                             # focus / open the main window
-copyq "copy('hello')"             # write to clipboard
-copyq "clipboard()"               # read clipboard
-copyq "show('History')"           # open history tab
-copyq menu                        # open the tray menu
+# One-liner
+curl -fsSL "https://raw.githubusercontent.com/marktantongco/copyq-linux-fix/main/install-copyq.sh" -o /tmp/install-copyq.sh && chmod +x /tmp/install-copyq.sh && /tmp/install-copyq.sh
+
+# Start
+systemctl --user enable --now copyq
 ```
 
-### Service control
+---
+
+## Unified Installer (Option A) — Full Breakdown
+
+### What It Does (7 Steps)
+
+| Step | Script | Action |
+|---|---|---|
+| 1 | `scripts/01-check-system.sh` | Pre-flight: OS, session, XWayland, Flatpak, disk, network |
+| 2 | `scripts/02-install-copyq.sh` | Install CopyQ 16.0.0 from Flathub |
+| 3 | `scripts/03-patch-environment.sh` | Apply `~/.config/environment.d/wayland.conf` |
+| 4 | `scripts/04-configure-flatpak.sh` | Set Flatpak overrides (XWayland env, clipboard portal) |
+| 5 | `scripts/05-setup-shortcuts.sh` | Register GNOME shortcuts: Ctrl+Alt+V, Ctrl+Alt+Shift+V |
+| 6 | `scripts/06-enable-autostart.sh` | Create `~/.config/autostart/` entry with 3s delay |
+| 7 | `scripts/07-post-install-check.sh` | Color-coded pass/fail verification report |
+
+### Installer Modes
 
 ```bash
-systemctl --user status copyq      # check status
-systemctl --user restart copyq     # restart
-journalctl --user -u copyq -f      # tail logs
+./install.sh                # Full installation
+./install.sh --dry-run      # Preview without making changes
+./install.sh --diagnose     # Run diagnostics only
+./install.sh --uninstall    # Remove everything
+./install.sh --help         # Show usage
+```
+
+### Package Contents
+
+```
+copyq-linux-fix/
+|-- README.md                          # THIS FILE
+|-- LICENSE                            # MIT license
+|-- install.sh                         # Unified installer orchestrator
+|-- install-copyq.sh                   # Rootless .deb extractor (standalone)
+|
+|-- scripts/
+|   |-- 01-check-system.sh             # Pre-flight diagnostics
+|   |-- 02-install-copyq.sh            # Flatpak install
+|   |-- 03-patch-environment.sh        # Wayland env vars
+|   |-- 04-configure-flatpak.sh        # Flatpak overrides
+|   |-- 05-setup-shortcuts.sh          # GNOME shortcuts
+|   |-- 06-enable-autostart.sh         # Autostart entry
+|   |-- 07-post-install-check.sh       # Verification
+|   |-- diagnose.sh                    # Standalone diagnostic tool
+|   +-- uninstall.sh                   # Full removal
+|
+|-- config/
+|   |-- environment.d/
+|   |   +-- wayland.conf               # Toolkit env vars (GDK, Qt, SDL, Electron)
+|   |-- flatpak-overrides/
+|   |   +-- com.github.hluk.copyq      # CopyQ XWayland bridge override
+|   +-- autostart/
+|       +-- com.github.hluk.copyq.desktop  # Autostart entry
+|
+|-- docs/
+|   |-- WAYLAND-ARCHITECTURE.md         # X11 vs Wayland deep-dive
+|   |-- COMPATIBILITY-MATRIX.md         # App-by-app compat table
+|   +-- TROUBLESHOOTING.md              # Detailed troubleshooting guide
+|
++-- index.html                         # GitHub Pages landing page
 ```
 
 ---
 
-## Compatibility / Wayland notes
+## Configuration Files Explained
 
-The launcher forces `QT_QPA_PLATFORM=xcb`, so CopyQ runs through **XWayland** rather than native Wayland. This is intentional:
+### `config/environment.d/wayland.conf`
 
-- **Clipboard** works via the X11 clipboard bridge that GNOME/KDE/Wayland compositors already provide.
-- **Tray icon** (StatusNotifierItem) renders through XWayland's system-tray bridge.
-- Native Qt6 Wayland platform is *not* bundled in this install (it requires additional `qt6-wayland` packages and a Wayland-era tray protocol), and CopyQ 13.0.0's tray integration is historically more stable on xcb.
+Loaded by systemd at login. Sets toolkit backends for ALL GUI apps:
 
-If you run a pure X11 session, the xcb platform is native and needs no bridge.
-
-### Known warnings (benign)
-
-```
-Warning: qt.qpa.services: Failed to register with host portal ...
+```ini
+GDK_BACKEND=wayland              # GTK apps -> native Wayland
+QT_QPA_PLATFORM=wayland;xcb      # Qt apps -> Wayland, fallback to X11
+SDL_VIDEODRIVER=wayland          # SDL apps -> Wayland
+ELECTRON_OZONE_PLATFORM_HINT=wayland  # Electron apps -> Wayland
+MOZ_ENABLE_WAYLAND=1             # Firefox -> Wayland
 ```
 
-This is the xdg-desktop-portal app-ID registration race under XWayland. It does **not** affect clipboard or tray functionality. It appears once at startup.
+### `config/flatpak-overrides/com.github.hluk.copyq`
+
+**Overrides the above for CopyQ ONLY** — forces XWayland so clipboard monitoring works:
+
+```ini
+[Environment]
+QT_QPA_PLATFORM=xcb    # CopyQ: use X11 bridge (clipboard works here)
+GDK_BACKEND=x11        # CopyQ: use X11 bridge
+```
+
+This is the critical patch: CopyQ goes through XWayland while everything else stays on native Wayland.
 
 ---
 
-## File layout
+## The Wayland Problem (Deep Dive)
 
-```
-~/
-├── Applications/copyq/              # extracted app + plugins + usr/bin/copyq
-│   └── usr/bin/copyq                # the real binary
-├── .local/
-│   ├── bin/copyq                    # launcher wrapper
-│   ├── lib/copyq-runtime/           # 855 shared libs (Qt6 + KDE6 + Qt5)
-│   ├── share/applications/copyq.desktop
-│   └── share/icons/hicolor/.../     # 16–128px + scalable icons
-├── .config/systemd/user/copyq.service
-└── .config/copyq/                   # your CopyQ config + history
-```
+### Clipboard on X11 (1984-2025)
+
+Any application could monitor the clipboard at any time. Convenient but a privacy nightmare. Keyloggers and spyware could trivially read everything you copy — passwords, credit card numbers, private messages.
+
+### Clipboard on Wayland (GNOME)
+
+Only the focused app and the compositor can read the clipboard. **GNOME's mutter does NOT implement `wl-data-control`**, so no third-party clipboard manager can monitor clipboard events. This is by design.
+
+### Why XWayland Bridge Works
+
+When you copy text in Firefox (native Wayland), GNOME's mutter bridges that clipboard content to the XWayland X11 clipboard for compatibility. CopyQ, running via XWayland, monitors this bridge and captures the event. **This is not guaranteed** — some clipboard events may not be bridged — but it works for most day-to-day usage.
+
+### Compositors That Support Clipboard Managers Natively
+
+| Compositor | wl-data-control | Native Clipboard Manager |
+|---|---|---|
+| **GNOME (mutter)** | **No** | **Only via XWayland** |
+| KDE Plasma (kwin) | Yes | Yes |
+| Sway / wlroots | Yes | Yes |
+| Hyprland | Yes | Yes |
+
+---
+
+## App Compatibility Matrix
+
+| App | Native Wayland | XWayland | Notes |
+|---|---|---|---|
+| Firefox | Yes | — | Default in 26.04 |
+| GNOME Terminal | Yes | — | Native |
+| VS Code | Yes | — | Electron Ozone |
+| LibreOffice | Yes | — | Since v7.6+ |
+| GIMP | Yes | — | GTK3 native |
+| OBS Studio | Yes | — | Wayland capture |
+| **CopyQ** | **Partial** | **Full** | **Needs XWayland bridge** |
+| Wine | No | Yes | X11 only |
+| Steam | Partial | Yes | Proton via XWayland |
+| `xdotool` | No | No | Use `ydotool` instead |
+
+See [`docs/COMPATIBILITY-MATRIX.md`](docs/COMPATIBILITY-MATRIX.md) for the full table.
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| `copyq` command not found | Ensure `~/.local/bin` is on your `PATH` (log out/in once) |
-| `Cannot connect to server` | Start the server first: `systemctl --user start copyq` then retry |
-| Tray icon missing | Check the compositor's tray (some need `gnome-shell-extension-appindicator`); the clipboard still works headless |
-| Blank/transparent window | Runtime libs incomplete — re-run the installer, verify `~/.local/lib/copyq-runtime/` has >100 `.so` files |
-| `error while loading shared libraries` | Extractor missed a dep; delete `~/.local/lib/copyq-runtime/` and re-run |
+| Problem | Solution |
+|---|---|
+| CopyQ doesn't capture from native Wayland apps | Expected — GNOME doesn't bridge all events. Use the XWayland bridge. |
+| Global hotkeys not working | This package registers GNOME custom shortcuts (Ctrl+Alt+V). Check Settings > Keyboard. |
+| CopyQ window blank/transparent | `flatpak override --user com.github.hluk.copyq --env=GDK_BACKEND=x11` |
+| CopyQ not starting at login | Check `~/.config/autostart/`, re-enable if GNOME disabled it |
+| XWayland not running | `ps aux | grep Xwayland` — should start on demand |
+| After system update, CopyQ broke | Re-run `./install.sh` or `./scripts/diagnose.sh` |
+
+See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) for the full guide.
+
+---
+
+## Rootless Installer (Option B) — How It Works
+
+The `install-copyq.sh` script downloads CopyQ's `.deb` packages and extracts them into your home directory without touching `/usr` or `/var`:
+
+1. Runs `apt-get install --simulate copyq` to get the exact dependency list
+2. Downloads each `.deb` to a temp directory
+3. Extracts with `dpkg-deb -x` (pure extraction, no root)
+4. Collects all `lib*.so*` into `~/.local/lib/copyq-runtime/`
+5. Writes a thin launcher that sets `QT_QPA_PLATFORM=xcb` and `exec`s the real binary
+6. Creates systemd user service for autostart
+
+### Rootless File Layout
+
+```
+~/
+|-- Applications/copyq/              # extracted app + binary
+|-- .local/
+|   |-- bin/copyq                    # launcher wrapper
+|   |-- lib/copyq-runtime/           # shared libs (Qt6 + KDE6)
+|   |-- share/applications/copyq.desktop
+|   +-- share/icons/hicolor/.../
+|-- .config/systemd/user/copyq.service
++-- .config/copyq/                   # your CopyQ config
+```
+
+---
+
+## GitHub Pages
+
+This repo includes a GitHub Pages landing page at [`index.html`](index.html) that serves as the visual documentation companion to this README.
+
+**Live site:** https://marktantongco.github.io/copyq-linux-fix/
 
 ---
 
 ## Uninstall
 
+### Option A (Flatpak):
+```bash
+./install.sh --uninstall
+```
+
+### Option B (Rootless):
 ```bash
 systemctl --user disable --now copyq 2>/dev/null
 rm -rf ~/Applications/copyq ~/.local/lib/copyq-runtime
 rm -f ~/.local/bin/copyq ~/.local/share/applications/copyq.desktop
 rm -f ~/.config/systemd/user/copyq.service
-rm -rf ~/.config/copyq                  # removes history + config
+rm -rf ~/.config/copyq
 ```
 
 ---
 
-## How it works (technical)
+## References
 
-The script does **not** install any package via `dpkg -i`. Instead it:
-
-1. Runs `apt-get install --simulate copyq` to get the exact dependency list for *this* OS version.
-2. Downloads each `.deb` to a temp directory.
-3. Extracts with `dpkg-deb -x` (pure extraction, no root, no triggers).
-4. Collects all `lib*.so*` into a single `LD_LIBRARY_PATH`-able runtime dir.
-5. Stages Qt plugins (`platforms/libqxcb.so`, `xcbglintegrations/`, `styles/`, `platformtheme/`) where the launcher's `QT_PLUGIN_PATH` points.
-6. Writes a thin launcher that sets the environment and `exec`s the real binary.
-
-Because nothing touches `/usr` or `/var`, the install is fully contained, requires no privilege escalation, and leaves no trace beyond the directories above.
+- [CopyQ](https://github.com/hluk/CopyQ) — Lukas Holecek
+- [Ubuntu 26.04 Release Notes](https://documentation.ubuntu.com/release-notes/26.04/)
+- [Ubuntu 26.04 Roadmap](https://discourse.ubuntu.com/t/ubuntu-26-04-lts-the-roadmap/72740)
+- [Flathub CopyQ](https://flathub.org/en/apps/com.github.hluk.copyq)
+- [CopyQ PPA](https://launchpad.net/~hluk/+archive/ubuntu/copyq)
+- [Wayland Protocol](https://wayland.freedesktop.org/)
 
 ---
 
 ## License
 
-The installer script is [MIT](LICENSE). CopyQ itself is GPLv3 — see [hluk/copyq](https://github.com/hluk/copyq).
+Installer scripts are [MIT](LICENSE). CopyQ itself is GPLv3 — see [hluk/copyq](https://github.com/hluk/copyq).
