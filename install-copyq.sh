@@ -258,27 +258,26 @@ configure_clipboard() {
     [ -n "$started" ] && kill "$started" 2>/dev/null
 }
 
-configure_terminal_xwayland() {
-    # Run gnome-terminal under XWayland so its copies AND mouse selections
-    # land directly in X11, where CopyQ can capture them. On GNOME Wayland,
-    # mutter does not bridge Wayland-native selections to X11 PRIMARY, so a
-    # native-Wayland terminal's mouse selections never reach CopyQ.
-    log "Forcing gnome-terminal to XWayland (CopyQ capture compatibility)..."
-    local unit="$SVDIR/gnome-terminal-server.service.d/xwayland.conf"
-    mkdir -p "$(dirname "$unit")"
-    if [ ! -f "$unit" ] || ! grep -q "GDK_BACKEND=x11" "$unit"; then
-        cat > "$unit" <<EOF
-[Service]
-# Force XWayland so terminal copies + mouse selections go straight to X11,
-# where CopyQ can capture them (mutter does not bridge Wayland-native
-# selections to X11 PRIMARY).
-Environment=GDK_BACKEND=x11
-EOF
-        systemctl --user daemon-reload 2>/dev/null \
-            && log "  gnome-terminal-server drop-in written ($unit)" \
-            || warn "  could not reload systemd (applies at next login)"
+install_wayland_env() {
+    # Native-Wayland toolkit env for everything except CopyQ (which is
+    # forced to X11/xcb by its launcher): GTK/Qt/SDL/Electron/Firefox all
+    # run natively on Wayland. Mirrors Option A's 03-patch-environment.sh.
+    log "Applying native-Wayland environment (wayland.conf)..."
+    local src="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config/environment.d/wayland.conf"
+    local dir="$HOME/.config/environment.d"
+    local tgt="$dir/wayland.conf"
+    if [ -f "$src" ]; then
+        mkdir -p "$dir"
+        if [ -f "$tgt" ] && ! cmp -s "$src" "$tgt"; then
+            cp -a "$tgt" "$tgt.bak."$(date +%s) 2>/dev/null
+            warn "  backed up existing wayland.conf"
+        fi
+        cp "$src" "$tgt" && log "  $tgt"
+        log "  GDK_BACKEND=wayland | QT_QPA_PLATFORM=wayland;xcb | ELECTRON_OZONE_PLATFORM_HINT=wayland | MOZ_ENABLE_WAYLAND=1"
+        log "  Note: takes effect at next login; apply now with:"
+        log "    systemctl --user set-environment GDK_BACKEND=wayland"
     else
-        log "  drop-in already present ($unit)"
+        warn "  config/environment.d/wayland.conf not found next to installer; skipping"
     fi
 }
 
@@ -312,7 +311,7 @@ main() {
     write_systemd_unit
     verify
     configure_clipboard
-    configure_terminal_xwayland
+    install_wayland_env
     print_next
 }
 
