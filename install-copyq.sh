@@ -237,6 +237,28 @@ verify() {
     fi
 }
 
+configure_clipboard() {
+    # Universal copy/paste: capture clipboard + primary (mouse) selections
+    # and allow middle-click paste of copied content. Mutex with a running
+    # server: CopyQ is single-instance, so reuse one if present.
+    log "Enabling universal clipboard capture..."
+    local started=""
+    if ! pgrep -f "$APPDIR/usr/bin/copyq" >/dev/null 2>&1; then
+        setsid "$BINDIR/copyq" >/tmp/copyq-config.log 2>&1 < /dev/null &
+        started=$!; sleep 5
+    fi
+    "$BINDIR/copyq" config check_selection true 2>/dev/null \
+        && log "  check_selection=true (capture mouse selections)" \
+        || warn "  could not set check_selection"
+    "$BINDIR/copyq" config copy_clipboard true 2>/dev/null \
+        && log "  copy_clipboard=true (middle-click paste of copied text)" \
+        || warn "  could not set copy_clipboard"
+    "$BINDIR/copyq" config copy_selection true 2>/dev/null \
+        && log "  copy_selection=true (paste selections via Ctrl+V)" \
+        || warn "  could not set copy_selection"
+    [ -n "$started" ] && kill "$started" 2>/dev/null
+}
+
 print_next() {
     echo
     echo "================================================"
@@ -266,6 +288,7 @@ main() {
     write_desktop_entry
     write_systemd_unit
     verify
+    configure_clipboard
     print_next
 }
 
