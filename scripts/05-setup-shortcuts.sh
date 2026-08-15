@@ -15,7 +15,7 @@ CUSTOM_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
 
 register_shortcut() {
     local idx="$1" name="$2" cmd="$3" binding="$4"
-    local path="${CUSTOM_PATH}/custom${idx}"
+    local path="${CUSTOM_PATH}/custom${idx}/"
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${path}" name "${name}"
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${path}" command "${cmd}"
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${path}" binding "${binding}"
@@ -23,11 +23,20 @@ register_shortcut() {
 }
 
 info "Registering GNOME custom shortcuts..."
-register_shortcut 0 "CopyQ Toggle" "${COPYQ_CMD} --toggle" "<Ctrl><Alt>v"
-register_shortcut 1 "CopyQ Menu" "${COPYQ_CMD} menu" "<Ctrl><Alt><Shift>v"
+
+# Super+V is claimed by GNOME Shell's toggle-message-tray by default, which
+# makes the CopyQ grab silently fail. Free it first (Super+M remains as the
+# message-tray shortcut).
+if gsettings get org.gnome.shell.keybindings toggle-message-tray 2>/dev/null | grep -q "<Super>v"; then
+    gsettings set org.gnome.shell.keybindings toggle-message-tray "['<Super>m']"
+    info "Freed Super+V from message tray (kept Super+M)"
+fi
+
+register_shortcut 0 "CopyQ Toggle" "${COPYQ_CMD} --toggle" "<Super>v"
+register_shortcut 1 "CopyQ Menu" "${COPYQ_CMD} menu" "<Super><Shift>v"
 
 gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \
-    "['${CUSTOM_PATH}/custom0', '${CUSTOM_PATH}/custom1']"
+    "['${CUSTOM_PATH}/custom0/', '${CUSTOM_PATH}/custom1/']"
 pass "Keybinding list updated"
-info "Shortcuts: Ctrl+Alt+V (toggle), Ctrl+Alt+Shift+V (menu)"
+info "Shortcuts: Super+V (toggle), Super+Shift+V (menu)"
 echo ""

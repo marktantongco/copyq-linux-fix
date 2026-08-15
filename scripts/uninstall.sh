@@ -25,11 +25,11 @@ AS="${HOME}/.config/autostart/com.github.hluk.copyq.desktop"
 
 CUSTOM_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
 for i in 0 1 2 3 4; do
-    scmd=$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" command 2>/dev/null || echo "")
+    scmd=$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}/" command 2>/dev/null || echo "")
     [[ "${scmd}" == *copyq* ]] && {
-        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" name 2>/dev/null || true
-        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" command 2>/dev/null || true
-        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" binding 2>/dev/null || true
+        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}/" name 2>/dev/null || true
+        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}/" command 2>/dev/null || true
+        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}/" binding 2>/dev/null || true
         info "Shortcut custom${i} removed"
     }
 done

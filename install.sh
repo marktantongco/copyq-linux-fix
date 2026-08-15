@@ -47,7 +47,7 @@ summary() {
     if [[ ${FAIL} -gt 0 ]]; then
         echo -e "${RED}Errors occurred. Log: ${LOG_FILE}${NC}"
     else
-        echo -e "${GREEN}${BOLD}Success! Log out/in, then press Ctrl+Alt+V.${NC}"
+        echo -e "${GREEN}${BOLD}Success! Log out/in, then press Super+V.${NC}"
     fi
     echo ""
 }

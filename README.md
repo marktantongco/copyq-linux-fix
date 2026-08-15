@@ -36,7 +36,7 @@ Ubuntu 26.04 LTS (GNOME 50 / Wayland-only / No Xorg)
     |       +-- CopyQ 16.0.0 (Flatpak, forced via XWayland)
     |           Monitors X11 clipboard bridge
     |           Clipboard portal permission granted
-    |           GNOME shortcuts registered (Ctrl+Alt+V)
+    |           GNOME shortcuts registered (Super+V)
     |           Autostart at login with 3s delay
 ```
 
@@ -62,7 +62,7 @@ git clone https://github.com/marktantongco/copyq-linux-fix.git
 cd copyq-linux-fix
 chmod +x install.sh scripts/*.sh
 ./install.sh
-# Log out and back in, then press Ctrl+Alt+V to toggle CopyQ
+# Log out and back in, then press Super+V to toggle CopyQ
 ```
 
 ### Option B: Rootless Installer (No Sudo, No Flatpak)
@@ -87,7 +87,7 @@ systemctl --user enable --now copyq
 | 2 | `scripts/02-install-copyq.sh` | Install CopyQ 16.0.0 from Flathub |
 | 3 | `scripts/03-patch-environment.sh` | Apply `~/.config/environment.d/wayland.conf` |
 | 4 | `scripts/04-configure-flatpak.sh` | Set Flatpak overrides (XWayland env, clipboard portal) |
-| 5 | `scripts/05-setup-shortcuts.sh` | Register GNOME shortcuts: Ctrl+Alt+V, Ctrl+Alt+Shift+V |
+| 5 | `scripts/05-setup-shortcuts.sh` | Register GNOME shortcuts: Super+V, Super+Shift+V |
 | 6 | `scripts/06-enable-autostart.sh` | Create `~/.config/autostart/` entry with 3s delay |
 | 7 | `scripts/07-post-install-check.sh` | Color-coded pass/fail verification report |
 
@@ -216,13 +216,83 @@ See [`docs/COMPATIBILITY-MATRIX.md`](docs/COMPATIBILITY-MATRIX.md) for the full 
 | Problem | Solution |
 |---|---|
 | CopyQ doesn't capture from native Wayland apps | Expected — GNOME doesn't bridge all events. Use the XWayland bridge. |
-| Global hotkeys not working | This package registers GNOME custom shortcuts (Ctrl+Alt+V). Check Settings > Keyboard. |
+| Terminal *mouse selections* don't reach CopyQ | Expected on native Wayland — mutter doesn't bridge Wayland-native selections to X11 PRIMARY (CopyQ lives on X11). Ctrl+Shift+C **clipboard** copies still reach CopyQ. This is the accepted tradeoff for running the terminal natively; force it to XWayland only if selection capture matters more. |
+| Global hotkeys not working | This package registers GNOME custom shortcuts (Super+V). Check Settings > Keyboard. |
 | CopyQ window blank/transparent | `flatpak override --user com.github.hluk.copyq --env=GDK_BACKEND=x11` |
 | CopyQ not starting at login | Check `~/.config/autostart/`, re-enable if GNOME disabled it |
 | XWayland not running | `ps aux | grep Xwayland` — should start on demand |
 | After system update, CopyQ broke | Re-run `./install.sh` or `./scripts/diagnose.sh` |
 
 See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) for the full guide.
+
+---
+
+## Verify Hotkeys
+
+This package registers two GNOME custom shortcuts: **Super+V** (CopyQ Toggle) and **Super+Shift+V** (CopyQ Menu). Super-key combos are passed through by remote-desktop clients, so they avoid the Ctrl+Alt combos that clients reserve. Here's how to verify they're registered and actually fire — including headless/scripted checks.
+
+> **Gotcha:** GNOME Shell claims `Super+V` for `toggle-message-tray` by default,
+> which makes the CopyQ grab silently fail (check `journalctl` for
+> `Failed to grab accelerator ... custom0`). The installer frees it by setting
+> `toggle-message-tray` to `['<Super>m']` — `Super+M` still opens the tray.
+
+### 1. Verify the shortcuts are registered
+
+```bash
+# The custom-keybindings list should contain custom0 and custom1
+gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings
+# → ['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/',
+#    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+
+gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding
+# → '<Super>v'
+
+gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/ binding
+# → '<Super><Shift>v'
+```
+
+### 2. Verify the command side (no key needed)
+
+Run exactly what the hotkey executes and watch for an observable effect:
+
+```bash
+# Option A (Flatpak)
+flatpak run com.github.hluk.copyq --toggle   # main window should appear/hide
+# Option B (rootless)
+copyq toggle                                 # returns true
+# The main window's X map state should flip between IsViewable/IsUnMapped:
+xwininfo -root -tree | grep -i copyq
+```
+
+### 3. Simulate the key press
+
+**X11 session** — `xdotool` works because XTEST reaches the compositor's X11 path:
+
+```bash
+xdotool key Super_L+v              # toggle
+xdotool key Super_L+Shift_L+v       # menu
+```
+
+**Wayland session** — plain `xdotool` will *not* trigger compositor grabs (mutter intercepts
+accelerators before XWayland sees them). Use one of:
+
+```bash
+# wtype — virtual-keyboard protocol (only if the compositor advertises it;
+# GNOME mutter frequently does NOT, e.g. in headless/VM sessions)
+wtype -M super v -m super                                # toggle
+wtype -M super -M shift v -m shift -m super              # menu
+
+# ydotool — injects via /dev/uinput (needs root, or membership in the 'input' group)
+# Keycodes: Super=125, Shift=42, V=47
+ydotool key 125:1 47:1 47:0 125:0                         # toggle
+ydotool key 125:1 42:1 47:1 47:0 42:0 125:0               # menu
+```
+
+> **Reality check:** on GNOME Wayland there is no reliable user-level way to synthesize a key
+> that hits compositor-level grabs. `wtype` requires the virtual-keyboard protocol (missing on
+> many mutter builds), and `ydotool` requires root. If neither works on your session, the
+> authoritative test is simply pressing the keys yourself — everything upstream of the keypress
+> (dconf registration, `gsd-media-keys`, the CopyQ command) is verifiable with the commands above.
 
 ---
 

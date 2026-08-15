@@ -7,9 +7,9 @@ set -euo pipefail
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
 pass_count=0; fail_count=0; warn_count=0
-pass() { echo -e "  ${GREEN}[PASS]${NC} $*"; ((pass_count++)); }
-fail() { echo -e "  ${RED}[FAIL]${NC} $*"; ((fail_count++)); }
-warn() { echo -e "  ${YELLOW}[WARN]${NC} $*"; ((warn_count++)); }
+pass() { echo -e "  ${GREEN}[PASS]${NC} $*"; pass_count=$((pass_count+1)); }
+fail() { echo -e "  ${RED}[FAIL]${NC} $*"; fail_count=$((fail_count+1)); }
+warn() { echo -e "  ${YELLOW}[WARN]${NC} $*"; warn_count=$((warn_count+1)); }
 
 echo -e "${BOLD}Running pre-flight system checks...${NC}\n"
 
