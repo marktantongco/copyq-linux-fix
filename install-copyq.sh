@@ -247,15 +247,14 @@ configure_clipboard() {
         setsid "$BINDIR/copyq" >/tmp/copyq-config.log 2>&1 < /dev/null &
         started=$!; sleep 5
     fi
+    # NOTE: only enable capture (check_selection). Do NOT enable
+    # copy_selection / copy_clipboard: they make CopyQ sync the X11 PRIMARY
+    # selection into the clipboard, and on GNOME Wayland mutter does not
+    # bridge Wayland-native selections to X11 PRIMARY — so CopyQ would
+    # overwrite the clipboard with stale/empty content and break Ctrl+V paste.
     "$BINDIR/copyq" config check_selection true 2>/dev/null \
-        && log "  check_selection=true (capture mouse selections)" \
+        && log "  check_selection=true (capture mouse selections into history)" \
         || warn "  could not set check_selection"
-    "$BINDIR/copyq" config copy_clipboard true 2>/dev/null \
-        && log "  copy_clipboard=true (middle-click paste of copied text)" \
-        || warn "  could not set copy_clipboard"
-    "$BINDIR/copyq" config copy_selection true 2>/dev/null \
-        && log "  copy_selection=true (paste selections via Ctrl+V)" \
-        || warn "  could not set copy_selection"
     [ -n "$started" ] && kill "$started" 2>/dev/null
 }
 
