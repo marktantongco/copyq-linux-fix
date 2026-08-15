@@ -216,6 +216,7 @@ See [`docs/COMPATIBILITY-MATRIX.md`](docs/COMPATIBILITY-MATRIX.md) for the full 
 | Problem | Solution |
 |---|---|
 | CopyQ doesn't capture from native Wayland apps | Expected — GNOME doesn't bridge all events. Use the XWayland bridge. |
+| **Terminal copies/selections don't reach CopyQ** | **mutter never bridges Wayland-native *mouse selections* to X11 PRIMARY, so CopyQ never sees them. Fix: run gnome-terminal under XWayland — create `~/.config/systemd/user/gnome-terminal-server.service.d/xwayland.conf` with `Environment=GDK_BACKEND=x11`, then `systemctl --user daemon-reload`. The Option A installer does this automatically.** |
 | Global hotkeys not working | This package registers GNOME custom shortcuts (Super+V). Check Settings > Keyboard. |
 | CopyQ window blank/transparent | `flatpak override --user com.github.hluk.copyq --env=GDK_BACKEND=x11` |
 | CopyQ not starting at login | Check `~/.config/autostart/`, re-enable if GNOME disabled it |

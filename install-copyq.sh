@@ -258,6 +258,30 @@ configure_clipboard() {
     [ -n "$started" ] && kill "$started" 2>/dev/null
 }
 
+configure_terminal_xwayland() {
+    # Run gnome-terminal under XWayland so its copies AND mouse selections
+    # land directly in X11, where CopyQ can capture them. On GNOME Wayland,
+    # mutter does not bridge Wayland-native selections to X11 PRIMARY, so a
+    # native-Wayland terminal's mouse selections never reach CopyQ.
+    log "Forcing gnome-terminal to XWayland (CopyQ capture compatibility)..."
+    local unit="$SVDIR/gnome-terminal-server.service.d/xwayland.conf"
+    mkdir -p "$(dirname "$unit")"
+    if [ ! -f "$unit" ] || ! grep -q "GDK_BACKEND=x11" "$unit"; then
+        cat > "$unit" <<EOF
+[Service]
+# Force XWayland so terminal copies + mouse selections go straight to X11,
+# where CopyQ can capture them (mutter does not bridge Wayland-native
+# selections to X11 PRIMARY).
+Environment=GDK_BACKEND=x11
+EOF
+        systemctl --user daemon-reload 2>/dev/null \
+            && log "  gnome-terminal-server drop-in written ($unit)" \
+            || warn "  could not reload systemd (applies at next login)"
+    else
+        log "  drop-in already present ($unit)"
+    fi
+}
+
 print_next() {
     echo
     echo "================================================"
@@ -288,6 +312,7 @@ main() {
     write_systemd_unit
     verify
     configure_clipboard
+    configure_terminal_xwayland
     print_next
 }
 
