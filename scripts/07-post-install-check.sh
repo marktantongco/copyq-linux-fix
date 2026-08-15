@@ -7,9 +7,9 @@ set -euo pipefail
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 pass_count=0; fail_count=0; warn_count=0
-pass() { echo -e "  ${GREEN}[PASS]${NC} $*"; ((pass_count++)); }
-fail() { echo -e "  ${RED}[FAIL]${NC} $*"; ((fail_count++)); }
-warn() { echo -e "  ${YELLOW}[WARN]${NC} $*"; ((warn_count++)); }
+pass() { echo -e "  ${GREEN}[PASS]${NC} $*"; pass_count=$((pass_count+1)); }
+fail() { echo -e "  ${RED}[FAIL]${NC} $*"; fail_count=$((fail_count+1)); }
+warn() { echo -e "  ${YELLOW}[WARN]${NC} $*"; warn_count=$((warn_count+1)); }
 info() { echo -e "  ${BLUE}[INFO]${NC} $*"; }
 
 COPYQ_ID="com.github.hluk.copyq"
@@ -17,7 +17,7 @@ echo -e "${BOLD}Post-install verification...${NC}\n"
 
 # CopyQ installed
 if flatpak list --app 2>/dev/null | grep -qi "${COPYQ_ID}"; then
-    ver=$(flatpak list --app --columns=version 2>/dev/null | grep -i copyq | head -1 | tr -d ' ')
+    ver=$(flatpak info "${COPYQ_ID}" 2>/dev/null | awk '/^Version/{print $2}' || true)
     pass "CopyQ installed (v${ver})"
 else
     fail "CopyQ NOT installed"
@@ -48,7 +48,7 @@ fi
 CUSTOM_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
 found=false
 for i in 0 1; do
-    sname=$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" name 2>/dev/null || echo "")
+    sname=$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}/" name 2>/dev/null || echo "")
     [[ -n "${sname}" && "${sname}" != "''" ]] && { pass "Shortcut: ${sname}"; found=true; }
 done
 [[ "${found}" == "false" ]] && warn "No GNOME shortcuts found (may need relogin)"

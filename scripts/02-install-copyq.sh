@@ -32,7 +32,7 @@ fi
 
 flatpak install flathub "${COPYQ_ID}" -y --noninteractive 2>&1 && pass "CopyQ installed" || fail "CopyQ install failed"
 
-installed_ver=$(flatpak list --app --columns=version 2>/dev/null | grep -i copyq | head -1 | tr -d ' ')
+installed_ver=$(flatpak info "${COPYQ_ID}" 2>/dev/null | awk '/^Version/{print $2}' || true)
 info "Installed version: ${installed_ver}"
 mkdir -p "${HOME}/.local/share/flatpak/overrides"
 echo ""

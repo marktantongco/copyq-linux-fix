@@ -28,6 +28,8 @@ detect_distro() {
         CODENAME="oracular"; VERSION_ID="26.04"
     fi
     ARCH="$(dpkg --print-architecture)"
+    # Multiarch lib dir (e.g. x86_64-linux-gnu) differs from dpkg arch (amd64)
+    MULTIARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || echo "$ARCH")"
     log "Detected: $NAME $VERSION_ID ($CODENAME) $ARCH"
 }
 
@@ -89,8 +91,17 @@ install_files() {
     log "Installing application to $APPDIR..."
     mkdir -p "$APPDIR" "$BINDIR" "$DESKTOPDIR" "$SVDIR" "$ICONDIR"
     # The binary + app share (icons live in hicolor below)
+    # NOTE: extract_runtime() deletes each deb's extraction after merging libs,
+    # so the copyq deb is re-extracted here — the app itself must not be lost.
     if [ ! -f "$APPDIR/usr/bin/copyq" ]; then
-        cp -an "$WORKDIR/extract-app/usr" "$APPDIR/" 2>/dev/null || true
+        for deb in "$WORKDIR/debs"/copyq*.deb; do
+            [ -f "$deb" ] || continue
+            local ex="$WORKDIR/app-extract"
+            dpkg-deb -x "$deb" "$ex" 2>/dev/null || continue
+            [ -d "$ex/usr" ] && cp -a "$ex/usr" "$APPDIR/" 2>/dev/null
+            rm -rf "$ex"
+            break
+        done
     fi
 
     # Icons
@@ -116,8 +127,8 @@ write_launcher() {
 #!/usr/bin/env bash
 # CopyQ launcher — rootless install
 # Compatibility: forces Qt xcb platform for Wayland sessions.
-export LD_LIBRARY_PATH="$RUNTIME:/usr/lib/$ARCH:/lib/$ARCH"
-export QT_PLUGIN_PATH="$APPDIR/plugins"
+export LD_LIBRARY_PATH="$RUNTIME:/usr/lib/$MULTIARCH:/lib/$MULTIARCH"
+export QT_PLUGIN_PATH="$APPDIR/plugins:/usr/lib/$MULTIARCH/qt6/plugins"
 export QT_QPA_PLATFORM="xcb"
 export QT_QPA_PLATFORMTHEME="gtk2"
 export XDG_SESSION_TYPE="\${XDG_SESSION_TYPE:-x11}"
@@ -158,10 +169,10 @@ PartOf=graphical-session.target
 Type=simple
 Environment=DISPLAY=:0
 Environment=XDG_SESSION_TYPE=x11
-Environment=QT_PLUGIN_PATH=$APPDIR/plugins
+Environment=QT_PLUGIN_PATH=$APPDIR/plugins:/usr/lib/$MULTIARCH/qt6/plugins
 Environment=QT_QPA_PLATFORM=xcb
 Environment=QT_QPA_PLATFORMTHEME=gtk2
-Environment=LD_LIBRARY_PATH=$RUNTIME:/usr/lib/$ARCH:/lib/$ARCH
+Environment=LD_LIBRARY_PATH=$RUNTIME:/usr/lib/$MULTIARCH:/lib/$MULTIARCH
 ExecStartPre=/bin/rm -f $HOME/.config/copyq/.copyq_s $HOME/.config/copyq/copyq.lock
 ExecStart=$BINDIR/copyq
 Restart=on-failure
@@ -178,32 +189,43 @@ verify() {
     log "Verifying installation..."
     local fails=0
     [ -x "$BINDIR/copyq" ] || { err "launcher missing"; fails=$((fails+1)); }
-    [ -d "$RUNTIME" ] && [ "$(find "$RUNTIME" -name '*.so*' | wc -l)" -gt 100 ] \
+    # Accept either a bundled runtime or the system Qt6 runtime (full desktop
+    # installs already ship it, so apt only needs to fetch copyq itself).
+    local bundled syslibs
+    bundled=$(find "$RUNTIME" -name '*.so*' 2>/dev/null | wc -l) || true
+    syslibs=$(find /usr/lib/$MULTIARCH -name '*.so*' 2>/dev/null | wc -l) || true
+    { [ "$bundled" -gt 0 ] || [ "$syslibs" -gt 100 ]; } \
         || { err "runtime libs incomplete"; fails=$((fails+1)); }
-    [ -f "$APPDIR/plugins/platforms/libqxcb.so" ] \
+    { [ -f "$APPDIR/plugins/platforms/libqxcb.so" ] \
+        || [ -f "/usr/lib/$MULTIARCH/qt6/plugins/platforms/libqxcb.so" ]; } \
         || { err "xcb platform plugin missing"; fails=$((fails+1)); }
     [ -f "$ICONDIR/64x64/apps/copyq.png" ] \
         || warn "64x64 icon missing (non-fatal)"
 
-    # Functional test — start server, exercise clipboard, stop
+    # Functional test — exercise clipboard against a running server.
+    # CopyQ is single-instance: if one is already up (e.g. the systemd unit),
+    # reuse it instead of starting a second server.
     log "Functional test (clipboard round-trip)..."
-    rm -f "$HOME/.config/copyq/.copyq_s" "$HOME/.config/copyq/copyq.lock" 2>/dev/null
-    setsid "$BINDIR/copyq" >/tmp/copyq-verify.log 2>&1 < /dev/null &
-    local pid=$!; sleep 6
-    if kill -0 "$pid" 2>/dev/null; then
+    local pid=""
+    if ! pgrep -f "$APPDIR/usr/bin/copyq" >/dev/null 2>&1; then
+        rm -f "$HOME/.config/copyq/.copyq_s" "$HOME/.config/copyq/copyq.lock" 2>/dev/null
+        setsid "$BINDIR/copyq" >/tmp/copyq-verify.log 2>&1 < /dev/null &
+        pid=$!; sleep 6
+    fi
+    if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+        warn "Server did not stay up — see /tmp/copyq-verify.log"
+        fails=$((fails+1))
+    else
         local wok rb
-        wok=$(timeout 20 "$BINDIR/copyq" "copy('install-verify-ok')" 2>&1)
+        wok=$(timeout 20 "$BINDIR/copyq" "copy('install-verify-ok')" 2>&1) || true
         sleep 1
-        rb=$(timeout 20 "$BINDIR/copyq" "clipboard()" 2>&1)
+        rb=$(timeout 20 "$BINDIR/copyq" "clipboard()" 2>&1) || true
         if [ "$rb" = "install-verify-ok" ]; then
             log "Clipboard round-trip PASSED"
         else
             warn "Clipboard read-back mismatch (got: '$rb') — server may still be initializing"
         fi
-        kill "$pid" 2>/dev/null
-    else
-        warn "Server did not stay up — see /tmp/copyq-verify.log"
-        fails=$((fails+1))
+        [ -n "$pid" ] && kill "$pid" 2>/dev/null
     fi
 
     if [ "$fails" -eq 0 ]; then
