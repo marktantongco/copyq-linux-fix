@@ -14,8 +14,12 @@
 5. [Clipboard Flow Diagram](#5-clipboard-flow-diagram)
 6. [Compositor Comparison Matrix](#6-compositor-comparison-matrix)
 7. [Why This Matters for Ubuntu 26.04 LTS](#7-why-this-matters-for-ubuntu-2604-lts)
-8. [Future Outlook](#8-future-outlook)
-9. [References](#9-references)
+8. [The GNOME Extension Dead End for Flatpak](#8-the-gnome-extension-dead-end-for-flatpak)
+9. [XDG Desktop Portal Clipboard vs wl-data-control](#9-xdg-desktop-portal-clipboard-vs-wl-data-control)
+10. [The QT_QPA_PLATFORM=xcb Trade-off](#10-the-qt_qpa_platformxcb-trade-off)
+11. [CopyQ v17 and Future Native Wayland](#11-copyq-v17-and-future-native-wayland)
+12. [Future Outlook](#12-future-outlook)
+13. [References](#13-references)
 
 ---
 
@@ -368,7 +372,297 @@ For organizations deploying Ubuntu 26.04 LTS at scale:
 
 ---
 
-## 8. Future Outlook
+## 8. The GNOME Extension Dead End for Flatpak
+
+### CopyQ's Own GNOME Shell Extension
+
+CopyQ ships a GNOME Shell extension called **"CopyQ Clipboard Monitor"** that provides native clipboard monitoring on GNOME Wayland — without needing XWayland or `wl-data-control`. The extension works by listening to GNOME Shell's internal `Meta.Display` clipboard-changed signal and forwarding clipboard content to CopyQ via D-Bus.
+
+This is the same mechanism used by other GNOME-compatible clipboard managers (Clipman, GPaste, Clyp), as documented in [COMPATIBILITY-MATRIX.md](COMPATIBILITY-MATRIX.md) section 2.
+
+### Why It Cannot Work in Flatpak
+
+The critical limitation, documented on the [CopyQ known-issues page](https://copyq.readthedocs.io/en/latest/known-issues.html):
+
+> It will not work when running CopyQ as a Flatpak or AppImage because the extension **cannot be registered with the GNOME Shell from a sandboxed environment**.
+
+GNOME Shell extensions must be installed into `~/.local/share/gnome-shell/extensions/` or `/usr/share/gnome-shell/extensions/` — directories that are **outside** the Flatpak sandbox. Even if the extension files were bundled inside the Flatpak, the extension registration process requires:
+
+1. **Filesystem access** to the GNOME Shell extensions directory (blocked by sandbox)
+2. **GNOME Shell restart** or `gnome-extensions enable` command (requires host access)
+3. **D-Bus communication** with `org.gnome.Shell.Extensions` (blocked by sandbox)
+
+### Impact on Our Approach
+
+This means the XWayland bridge is the **only viable approach** for running CopyQ as a Flatpak on GNOME Wayland. There is no alternative path — not the GNOME Shell extension, not the clipboard portal (see Section 9), and not native Wayland (see Section 10).
+
+| Installation Method | GNOME Extension | XWayland Bridge | Native Wayland |
+|---|---|---|---|
+| **Flatpak** | ❌ Cannot register | ✅ Our approach | ❌ No wl-data-control on GNOME |
+| **PPA / deb** | ✅ Can install extension | ✅ Fallback | ❌ No wl-data-control on GNOME |
+| **AppImage** | ❌ Cannot register | ✅ Possible | ❌ No wl-data-control on GNOME |
+
+### For PPA/deb Users
+
+If you installed CopyQ via PPA (v13.0.0) or a native `.deb` package, the GNOME Shell extension **can** work as an alternative to XWayland:
+
+```bash
+# Install the CopyQ GNOME Shell extension
+# (Extension files are typically in /usr/share/copyq/extensions/)
+cp /usr/share/copyq/extensions/gnome-shell/copyq@hluk.com/* \
+    ~/.local/share/gnome-shell/extensions/copyq@hluk.com/
+
+# Enable via GNOME Extensions app or CLI
+gnome-extensions enable copyq@hluk.com
+```
+
+However, GNOME Shell extensions are fragile — they can break on every GNOME update due to internal API changes.
+
+---
+
+## 9. XDG Desktop Portal Clipboard vs wl-data-control
+
+### The Clipboard Portal (xdg-desktop-portal 1.18+)
+
+The XDG Desktop Portal **Clipboard portal** was added in version 1.18 (September 2023) as an extension of the **Remote Desktop portal**. Its primary design goal:
+
+> Enable clipboard sharing between a local desktop session and a **remote desktop session**.
+
+This is fundamentally different from `wl-data-control`, which is designed for **local clipboard managers**.
+
+### Architecture Comparison
+
+```
+wl-data-control (for clipboard managers):
+    Clipboard Manager App ←→ Compositor ←→ Focused App
+    (Direct protocol, no user confirmation, background monitoring)
+
+XDG Clipboard Portal (for remote desktop):
+    Remote Desktop Client ←→ Portal Service ←→ Compositor ←→ Local App
+    (Requires user confirmation, request-response model, not for monitoring)
+```
+
+### Why the Clipboard Portal Doesn't Help CopyQ
+
+| Aspect | wl-data-control | XDG Clipboard Portal |
+|---|---|---|
+| **Design purpose** | Local clipboard management | Remote desktop clipboard sharing |
+| **Monitoring model** | Passive, continuous | Request-response, per-action |
+| **User confirmation** | Not required | Required (dialog popup) |
+| **Background operation** | Yes (daemon) | No (interactive) |
+| **GNOME implementation** | ❌ Not implemented | ⚠️ Partial (via mutter internals) |
+| **Flatpak override** | N/A | `--permission=clipboard=yes` |
+
+### The Flatpak `--permission=clipboard=yes` Misconception
+
+Some guides suggest using `flatpak override --permission=clipboard=yes` to grant CopyQ clipboard access on Wayland. This flag attempts to use the XDG Clipboard Portal, but:
+
+1. **The portal is for remote desktop, not clipboard managers** — it expects a remote desktop session to be active
+2. **It requires user confirmation for every clipboard access** — impractical for continuous monitoring
+3. **It cannot provide passive clipboard change notifications** — the portal only responds to explicit requests
+
+### GitLab GNOME MR#53: Clipboard Control in Portal
+
+GNOME has [Merge Request #53 on xdg-desktop-portal-gnome](https://gitlab.gnome.org/GNOME/xdg-desktop-portal-gnome/-/merge_requests/53) that adds clipboard control capabilities. This work leverages mutter's internal clipboard methods, but:
+
+- It's focused on **remote desktop use cases**, not clipboard managers
+- It would still require **user interaction** per clipboard access
+- There's no indication this will evolve into a `wl-data-control` replacement for managers
+
+### Bottom Line
+
+The XDG Desktop Portal Clipboard is **not a path forward** for clipboard managers on GNOME. It solves a different problem. For CopyQ on GNOME Wayland, the options remain:
+
+1. **XWayland bridge** (our approach) — works now, with documented limitations
+2. **GNOME Shell extension** — works but not in Flatpak, fragile across GNOME versions
+3. **wl-data-control in GNOME** — would be the ideal solution, but GNOME has explicitly declined
+
+---
+
+## 10. The QT_QPA_PLATFORM=xcb Trade-off
+
+### Why We Set This Variable
+
+Setting `QT_QPA_PLATFORM=xcb` forces CopyQ (a Qt6 application) to use the X11/XCB backend instead of the native Wayland backend. This is essential for clipboard monitoring on GNOME Wayland because:
+
+- CopyQ running on native Wayland cannot access the clipboard (GNOME has no `wl-data-control`)
+- CopyQ running via XWayland's X11 bridge *can* access the clipboard through the X11 selection mechanism
+
+The CopyQ documentation itself confirms: [copyq.readthedocs.io](https://copyq.readthedocs.io/)
+
+> Setting `QT_QPA_PLATFORM=xcb` is the recommended workaround for clipboard monitoring on GNOME Wayland.
+
+
+### Issue #3587: When XWayland Mode Breaks
+
+CopyQ issue [#3587](https://github.com/hluk/CopyQ/issues/3587) documents a critical edge case:
+
+> Setting `QT_QPA_PLATFORM=xcb` **can actually break clipboard monitoring** in some XWayland implementations.
+
+The CopyQ official docs warn:
+
+> It can cause clipboard monitoring to fail when the main window is closed, X11 connection errors, and other issues **depending on the XWayland implementation**.
+
+### What Happens (Root Cause)
+
+When CopyQ runs with `QT_QPA_PLATFORM=xcb`, it connects to the XWayland X server via the XCB library. The X11 connection has specific lifecycle behavior:
+
+```
+CopyQ Main Window OPEN:
+    CopyQ → XCB → XWayland X Server → Mutter Bridge → Wayland Clipboard ✅
+    (X11 connection active, SelectionNotify events flowing)
+
+CopyQ Main Window CLOSED (not just minimized):
+    CopyQ → XCB → XWayland X Server → [Connection may drop] ❌
+    (Qt may close the X11 display connection when last window is destroyed)
+    (Clipboard monitoring stops because SelectionNotify events are no longer received)
+
+CopyQ RUNNING with window MINIMIZED:
+    CopyQ → XCB → XWayland X Server → Mutter Bridge → Wayland Clipboard ✅
+    (X11 connection persists because window still exists)
+```
+
+The issue is that Qt's XCB platform plugin may tear down the X11 display connection when the **last top-level window is closed** — even if CopyQ's clipboard monitor thread is still running and needs that connection.
+
+### When This Occurs
+
+| Condition | Clipboard Monitoring Works? |
+|---|---|
+| CopyQ main window visible | ✅ Yes |
+| CopyQ minimized to tray | ✅ Yes (window still exists) |
+| CopyQ window closed via window manager close button | ❌ May stop (X11 connection drops) |
+| CopyQ running with `copyq --start` (no window) | ⚠️ Depends on Qt version |
+| CopyQ restarted after close | ✅ Yes (fresh connection) |
+
+### Mitigation Strategies
+
+**1. Keep CopyQ minimized, not closed:**
+
+Use the tray icon or GNOME shortcut (`Ctrl+Alt+V`) to hide the window instead of closing it. The window still exists; it's just not visible.
+
+**2. Use a restart wrapper script:**
+
+```bash
+#!/bin/bash
+# ~/.local/bin/copyq-watchdog.sh
+# Monitors CopyQ clipboard capture and restarts if stale
+
+LAST_ITEM=""
+while true; do
+    CURRENT=$(copyq read 0 2>/dev/null)
+    if [ "$CURRENT" != "$LAST_ITEM" ] && [ -n "$CURRENT" ]; then
+        LAST_ITEM="$CURRENT"
+    fi
+    
+    # If no clipboard update for 60 seconds, restart
+    if [ -z "$CURRENT" ]; then
+        copyq exit 2>/dev/null
+        sleep 1
+        flatpak run com.github.hluk.copyq &
+    fi
+    
+    sleep 60
+done
+```
+
+**3. Set CopyQ to run with tray icon only (no initial window):**
+
+```bash
+flatpak run com.github.hluk.copyq --start-managed  # Or configure in Preferences > History
+```
+
+### See Also
+
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) Section 8 for full diagnosis and resolution steps
+- CopyQ ReadTheDocs [known-issues page](https://copyq.readthedocs.io/en/latest/known-issues.html)
+
+---
+
+## 11. CopyQ v17 and Future Native Wayland
+
+### Current State: Native Wayland Works on Some Compositors
+
+CopyQ **already supports native Wayland** clipboard monitoring — but only on compositors that implement `wl-data-control` or the related `wlr-data-control-unstable-v1` protocol. From the CopyQ documentation:
+
+> CopyQ supports both X11 and Wayland display servers, though Wayland requires running with the `QT_QPA_PLATFORM=xcb` environment variable for **full clipboard** support on some desktop environments.
+
+| Desktop Environment | Native Wayland Clipboard | Protocol Used | Status |
+|---|---|---|---|
+| **KDE Plasma** | ✅ Full support | `wl-data-control` | Works without XWayland |
+| **Sway** | ✅ Full support | `wlr-data-control-unstable-v1` | Works without XWayland |
+| **Hyprland** | ✅ Full support | `wlr-data-control-unstable-v1` | Works without XWayland |
+| **wlroots-based (any)** | ✅ Full support | `wlr-data-control-unstable-v1` | Works without XWayland |
+| **GNOME (mutter)** | ❌ No support | N/A | **Blocked** — mutter doesn't implement wl-data-control |
+
+On KDE, Sway, and Hyprland, you can run CopyQ with `QT_QPA_PLATFORM=wayland` and it will monitor the clipboard natively. The XWayland workaround is **only needed for GNOME**.
+
+### Wine's March 2025 wl_data_device Merge
+
+A significant development in the broader Wayland clipboard ecosystem: **Wine merged native `wl_data_device` support in March 2025**. This means:
+
+- Wine applications can now use the Wayland clipboard protocol directly (without XWayland)
+- The merge demonstrates that the Wayland clipboard protocols are maturing and gaining adoption
+- It puts additional pressure on GNOME to reconsider `wl-data-control` implementation
+
+This is relevant to CopyQ because it shows momentum toward native Wayland clipboard support across the ecosystem.
+
+### Three Possible Paths Forward for GNOME
+
+| Path | Likelihood | Timeline | Impact |
+|---|---|---|---|
+| **(a) GNOME implements wl-data-control** | Low (near-term), Medium (long-term) | 2027+? | CopyQ native Wayland on GNOME — ideal solution |
+| **(b) CopyQ finds portal-based approach** | Medium | 2026+ | Could use XDG portal with some UX compromises |
+| **(c) XWayland bridge continues** | ✅ Current state | Indefinite | Works now but with documented limitations |
+
+### Path (a): GNOME Implements wl-data-control
+
+GNOME has discussed `wl-data-control v2` with a permission model (see Section 12: Future Outlook). Key indicators to watch:
+
+- **GNOME mutter merge requests** on [GitLab](https://gitlab.gnome.org/GNOME/mutter) — search for "data-control" or "clipboard"
+- **GNOME design discussions** on [GNOME Discourse](https://discourse.gnome.org/)
+- **Wayland protocol standardization** in [wayland-protocols](https://gitlab.freedesktop.org/wayland/wayland-protocols)
+
+If GNOME implements a permission-gated version, CopyQ would need to be updated to request clipboard access through the new API. Users would likely see a one-time "Allow CopyQ to access clipboard?" dialog.
+
+### Path (b): Portal-Based Approach
+
+CopyQ could potentially use the XDG Desktop Portal's clipboard capabilities (see Section 9), but this would require:
+
+1. A change in the portal's design to support **passive monitoring** (currently request-only)
+2. GNOME to implement clipboard notifications in the portal backend
+3. A UX model that doesn't require per-action confirmation
+
+This would be a significant architectural change to both the portal and CopyQ.
+
+### Path (c): XWayland Bridge (Current)
+
+The XWayland bridge approach works today and will continue to work as long as:
+
+1. GNOME continues to ship XWayland (guaranteed for the foreseeable future — too many X11 apps exist)
+2. The XWayland clipboard bridge remains functional (see Issue #3587, Section 10)
+3. CopyQ continues to support the Qt XCB backend
+
+This is the approach documented in this repository and remains the recommended solution for Ubuntu 26.04 LTS.
+
+### How to Test for Future Native Wayland
+
+```bash
+# Test CopyQ with native Wayland (no XWayland)
+QT_QPA_PLATFORM=wayland copyq
+
+# If this works on GNOME, wl-data-control has been implemented!
+# You'll see clipboard items appearing in CopyQ's history.
+
+# Verify which backend CopyQ is using:
+copyq --version
+# Look for "Using: wayland" or "Using: xcb" in debug output
+```
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) Section 11 for a complete monitoring guide.
+
+---
+
+## 12. Future Outlook
 
 ### wl-data-control v2
 
@@ -412,7 +706,7 @@ The downside: every clipboard access would require a user confirmation, which is
 
 ---
 
-## 9. References
+## 13. References
 
 ### Primary Sources
 

@@ -14,6 +14,10 @@
 5. [Flatpak-Specific Issues](#5-flatpak-specific-issues)
 6. [After System Update Breaks](#6-after-system-update-breaks)
 7. [Diagnostic Commands Cheat Sheet](#7-diagnostic-commands-cheat-sheet)
+8. [CopyQ Clipboard Monitor Stops After Closing Main Window](#8-copyq-clipboard-monitor-stops-after-closing-main-window)
+9. [ydotool as Keyboard Simulation Fallback](#9-ydotool-as-keyboard-simulation-fallback)
+10. [CopyQ's Built-in Wayland Support Command](#10-copyqs-built-in-wayland-support-command)
+11. [Monitoring CopyQ v17 for Native GNOME Wayland](#11-monitoring-copyq-v17-for-native-gnome-wayland)
 
 ---
 
@@ -912,6 +916,527 @@ or use D-Bus approach]
     style G fill:#6c6,color:white
     style F6 fill:#fc0,color:black
 ```
+
+---
+
+## 8. CopyQ Clipboard Monitor Stops After Closing Main Window
+
+### Problem
+
+CopyQ captures clipboard items normally while its main window is open, but **stops capturing new items after you close the main window** (even though the CopyQ tray icon is still visible). Copying text in other applications does not result in new entries in CopyQ's history.
+
+This is **CopyQ Issue [#3587](https://github.com/hluk/CopyQ/issues/3587)**, documented on the [CopyQ known-issues page](https://copyq.readthedocs.io/en/latest/known-issues.html).
+
+### Root Cause
+
+When CopyQ runs with `QT_QPA_PLATFORM=xcb` (forced XWayland mode), it connects to the XWayland X server via Qt's XCB platform plugin. The X11 connection lifecycle is tied to Qt's window management:
+
+1. **With main window open**: Qt maintains the X11 display connection → `SelectionNotify` events flow → clipboard monitoring works ✅
+2. **With main window closed**: Qt may tear down the X11 display connection when the last top-level window is destroyed → `SelectionNotify` events stop → clipboard monitoring fails ❌
+3. **With main window minimized**: Qt keeps the X11 connection alive (window still exists) → clipboard monitoring works ✅
+
+The CopyQ docs warn:
+
+> Setting `QT_QPA_PLATFORM=xcb` can cause clipboard monitoring to fail when the main window is closed, X11 connection errors, and other issues **depending on the XWayland implementation**.
+
+### Diagnosis Steps
+
+**Step 1: Reproduce the issue**
+
+```bash
+# 1. Open CopyQ (Ctrl+Alt+V)
+# 2. Copy this text in any app: "test before close"
+# 3. Verify CopyQ captured it:
+copyq read 0
+# 4. CLOSE CopyQ's main window (click X, not minimize)
+# 5. Copy new text: "test after close"
+# 6. Check if CopyQ captured the new text:
+copyq read 0
+# If it still shows "test before close" → clipboard monitoring stopped after window close
+```
+
+**Step 2: Check if CopyQ process is still running**
+
+```bash
+pgrep -a copyq
+# Expected: CopyQ should still be running (tray icon visible)
+# If not running: autostart/exit issue (see Section 4)
+```
+
+**Step 3: Check X11 connection status**
+
+```bash
+# Check for X11 errors in CopyQ's output
+flatpak run --command=copyq com.github.hluk.copyq --debug 2>&1 | rg -i 'x11|xcb|connection|error' | tail -10
+```
+
+### Solution
+
+**Solution A: Keep CopyQ minimized instead of closed (recommended)**
+
+Use the tray icon or `Ctrl+Alt+V` hotkey to hide the window instead of the window manager's close button. The window still exists in memory; it's just not visible. The X11 connection remains active.
+
+```bash
+# Configure CopyQ to minimize to tray instead of closing
+# In CopyQ: Preferences > Appearance > "Show main window" > "Minimize to tray on close"
+# Or via command:
+copyq config check_selection false
+```
+
+**Solution B: Configure CopyQ to run without an initial window**
+
+```bash
+# Start CopyQ in tray-only mode
+flatpak run com.github.hluk.copyq --start-managed
+
+# Or set in CopyQ Preferences > History > "Start with tray icon only"
+```
+
+**Solution C: Restart wrapper script (for persistent automation)**
+
+```bash
+#!/bin/bash
+# ~/.local/bin/copyq-watchdog.sh
+# Monitors CopyQ and restarts if clipboard monitoring becomes stale
+
+LAST_ITEM=""
+STALE_COUNT=0
+MAX_STALE=3  # Restart after 3 consecutive stale checks (3 minutes)
+
+while true; do
+    CURRENT=$(copyq read 0 2>/dev/null || echo "")
+    
+    if [ "$CURRENT" != "$LAST_ITEM" ] && [ -n "$CURRENT" ]; then
+        LAST_ITEM="$CURRENT"
+        STALE_COUNT=0
+    else
+        STALE_COUNT=$((STALE_COUNT + 1))
+    fi
+    
+    if [ $STALE_COUNT -ge $MAX_STALE ]; then
+        echo "$(date): CopyQ stale for $((MAX_STALE * 60))s, restarting..."
+        copyq exit 2>/dev/null
+        sleep 2
+        flatpak run com.github.hluk.copyq &
+        STALE_COUNT=0
+        sleep 60  # Give it time to start
+    fi
+    
+    sleep 60
+done
+```
+
+**Solution D: Re-open CopyQ window briefly**
+
+If you've already closed the window and monitoring stopped:
+
+```bash
+# Just re-open the window — monitoring resumes immediately
+copyq toggle
+# Then minimize instead of closing
+```
+
+### Verification
+
+```bash
+# 1. Open CopyQ, verify it captures clipboard:
+echo "pre-close test" | xclip -selection clipboard
+copyq read 0  # Should show: pre-close test
+
+# 2. MINIMIZE CopyQ (don't close):
+copyq toggle
+
+# 3. Copy new text while minimized:
+echo "minimized test" | xclip -selection clipboard
+copyq read 0  # Should show: minimized test
+
+# 4. If minimized works but closed doesn't, you've confirmed Issue #3587
+# Apply Solution A (always minimize, never close)
+```
+
+### See Also
+
+- [WAYLAND-ARCHITECTURE.md](WAYLAND-ARCHITECTURE.md) Section 10 for technical deep-dive on Issue #3587
+- CopyQ ReadTheDocs [known-issues page](https://copyq.readthedocs.io/en/latest/known-issues.html)
+
+---
+
+## 9. ydotool as Keyboard Simulation Fallback
+
+### Problem
+
+CopyQ scripts or external automation tools need to simulate keyboard input (e.g., pressing Ctrl+V to paste) on Wayland. The traditional tool `xdotool` is broken on Wayland (uses X11 `XTest` extension, which the compositor blocks).
+
+### Why ydotool
+
+**ydotool** uses the Linux kernel's `uinput` framework to create virtual keyboard/mouse devices at the **kernel level**. This means it works on ALL Wayland compositors — GNOME, KDE, Sway, Hyprland — because it operates below the compositor layer entirely.
+
+### Diagnosis Steps
+
+**Step 1: Check if xdotool is being used**
+
+```bash
+# Check if any scripts reference xdotool
+rg -r 'xdotool' ~/.config/copyq/ 2>/dev/null
+rg -r 'xdotool' ~/scripts/ 2>/dev/null
+```
+
+**Step 2: Verify ydotool is not installed**
+
+```bash
+which ydotool 2>/dev/null && echo "ydotool already installed" || echo "ydotool NOT installed"
+```
+
+**Step 3: Check if uinput kernel module is loaded**
+
+```bash
+lsmod | rg uinput
+# If empty: uinput may be built-in or not loaded
+ls -la /dev/uinput 2>/dev/null || echo "/dev/uinput does not exist"
+```
+
+### Solution
+
+**Install ydotool and required dependencies:**
+
+```bash
+# Install ydotool
+sudo apt install ydotool
+
+# Ensure uinput kernel module is loaded
+sudo modprobe uinput
+
+# Make uinput load on boot
+echo 'uinput' | sudo tee /etc/modules-load.d/uinput.conf
+```
+
+**Enable the ydotoold daemon:**
+
+```bash
+# ydotool requires a daemon (ydotoold) to communicate with the kernel
+# Enable and start as a systemd user service:
+systemctl --user enable --now ydotoold.service
+
+# Verify it's running:
+systemctl --user status ydotoold.service
+
+# Expected: active (running)
+```
+
+**Set up udev rule for non-root access (recommended):**
+
+Without this rule, ydotool commands require `sudo`:
+
+```bash
+# Create udev rule for uinput access
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"' | \
+    sudo tee /etc/udev/rules.d/80-uinput.rules
+
+# Reload udev rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+# Add your user to the input group
+sudo usermod -aG input $USER
+
+# IMPORTANT: Log out and back in for group change to take effect
+```
+
+**Test ydotool:**
+
+```bash
+# Open a text editor, then run:
+ydotool type "Hello from ydotool!"
+# Expected: text appears in the focused window
+
+# Simulate Ctrl+V (paste)
+# Key codes: 29=Ctrl(left), 47=V
+ydotool key 29:1 47:1 47:0 29:0
+
+# Simulate Enter
+ydotool key 28:1 28:0
+```
+
+**Replace xdotool in CopyQ scripts:**
+
+```bash
+# Old (broken on Wayland):
+# xdotool key ctrl+v
+
+# New (works on all Wayland):
+# ydotool key 29:1 47:1 47:0 29:0
+
+# Or use ydotoold's key name mapping:
+ydotool key ctrl:1 v:1 v:0 ctrl:0
+```
+
+### Verification
+
+```bash
+# 1. Verify ydotoold is running:
+systemctl --user is-active ydotoold.service
+# Expected: active
+
+# 2. Verify uinput is accessible:
+ls -la /dev/uinput
+# Expected: crw-rw---- (group input should have write access)
+
+# 3. Test basic input simulation:
+# Open a text editor, then:
+ydotool type "ydotool verification $(date +%s)"
+# Expected: text appears in the editor
+
+# 4. If "Permission denied":
+#   - Check udev rule was applied
+#   - Check user is in 'input' group (log out/in)
+#   - Or run with sudo: sudo ydotool type "test"
+```
+
+### Common Issues
+
+| Issue | Cause | Solution |
+|---|---|---|
+| `Permission denied` | No access to `/dev/uinput` | Apply udev rule, add user to `input` group, log out/in |
+| `Cannot connect to ydotoold` | Daemon not running | `systemctl --user start ydotoold.service` |
+| Keys type in wrong order | Race condition | Add small delays between key commands |
+| Works in terminal but not in script | Different `WAYLAND_DISPLAY` | Ensure daemon and script share the same session |
+
+### See Also
+
+- [COMPATIBILITY-MATRIX.md](COMPATIBILITY-MATRIX.md) Section 6 for full tool comparison (xdotool vs ydotool vs wlrctl)
+- ydotool GitHub: [ReimuNotMoe/ydotool](https://github.com/ReimuNotMoe/ydotool)
+
+---
+
+## 10. CopyQ's Built-in Wayland Support Command
+
+### Problem
+
+CopyQ has clipboard paste operations or custom copy commands that don't work correctly on Wayland — text doesn't paste into the focused application, or CopyQ can't copy from other apps programmatically.
+
+### CopyQ's Built-in Fix
+
+CopyQ includes a **built-in "Wayland Support" command** that can fix pasting and copy commands depending on your desktop environment. This command is available in CopyQ's preferences but may need to be manually enabled.
+
+### How to Enable It
+
+**Via CopyQ Preferences GUI:**
+
+1. Open CopyQ: `Ctrl+Alt+V` or click the tray icon
+2. Navigate to **Preferences** (F6 or File > Preferences)
+3. Go to **Items** tab
+4. Click on **Commands** sub-tab
+5. Look for the command named **"Wayland Support"**
+6. **Enable it** (check the box next to it)
+7. Click **OK** or **Apply**
+
+**Via Command Line:**
+
+```bash
+# List all available commands to find the Wayland Support command
+copyq commands
+
+# Enable the Wayland Support command (command name may vary by version)
+copyq command enable "Wayland Support"
+```
+
+### What It Does
+
+The "Wayland Support" command modifies CopyQ's internal clipboard operations to:
+
+1. **Use `wl-copy`/`wl-paste`** (from `wl-clipboard`) for native Wayland clipboard access when available
+2. **Adjust paste timing** — Wayland clipboard transfers have different timing than X11
+3. **Handle MIME type differences** — Wayland uses different MIME type negotiation than X11
+4. **Work around compositor-specific quirks** — different behavior on GNOME vs KDE vs Sway
+
+### When to Use This
+
+| Situation | Does This Help? |
+|---|---|
+| CopyQ on GNOME with XWayland (our setup) | ⚠️ May help with paste timing issues |
+| CopyQ on KDE Plasma (native Wayland) | ✅ Yes — improves native clipboard operations |
+| CopyQ on Sway/Hyprland (native Wayland) | ✅ Yes — improves native clipboard operations |
+| CopyQ paste command not working in specific app | ✅ Yes — adjusts timing and method |
+| CopyQ scripts using `copy()` or `paste()` functions | ✅ Yes — makes them Wayland-aware |
+
+### Prerequisites
+
+```bash
+# Install wl-clipboard (provides wl-copy and wl-paste commands)
+sudo apt install wl-clipboard
+
+# Verify installation:
+which wl-copy wl-paste
+# Expected: /usr/bin/wl-copy and /usr/bin/wl-paste
+```
+
+### Verification
+
+```bash
+# 1. Enable the Wayland Support command (see above)
+# 2. Copy some text in Firefox
+# 3. Open CopyQ, select the item
+# 4. Try pasting with Ctrl+V in a terminal
+# 5. If text appears correctly → Wayland Support is working
+
+# Test via command line:
+copyq read 0
+# Expected: shows the most recent clipboard item
+
+copyq select 0
+copyq paste
+# Expected: pastes the selected item into the focused window
+```
+
+### Troubleshooting
+
+**If the "Wayland Support" command doesn't appear:**
+
+```bash
+# Check CopyQ version (needs v7.0+ for Wayland support command)
+copyq --version
+
+# If using Flatpak, update to latest:
+flatpak update com.github.hluk.copyq
+
+# If using PPA, check for newer version:
+apt-cache policy copyq
+```
+
+**If paste still doesn't work after enabling:**
+
+```bash
+# Check wl-clipboard is working:
+echo "wl-clipboard test" | wl-copy
+wl-paste
+# Expected: "wl-clipboard test"
+
+# If wl-paste returns empty:
+# → wl-clipboard may not work in your Wayland session
+# → Try: WAYLAND_DISPLAY=wayland-1 wl-paste  (some compositors use different display names)
+```
+
+---
+
+## 11. Monitoring CopyQ v17 for Native GNOME Wayland
+
+### Problem
+
+You want to know when CopyQ will support native Wayland clipboard monitoring on GNOME, so you can stop using the XWayland bridge workaround.
+
+### Background
+
+CopyQ **already supports native Wayland** on compositors that implement `wl-data-control` or `wlr-data-control`:
+
+- ✅ KDE Plasma (uses `wl-data-control`)
+- ✅ Sway, Hyprland, wlroots-based compositors (use `wlr-data-control-unstable-v1`)
+- ❌ GNOME (mutter) — **does not implement either protocol**
+
+The blocker is GNOME's mutter compositor, not CopyQ. See [WAYLAND-ARCHITECTURE.md](WAYLAND-ARCHITECTURE.md) Section 11 for the full analysis.
+
+### How to Check for Future Native Wayland Support
+
+**Method 1: Test CopyQ with native Wayland (periodic check)**
+
+```bash
+# Kill CopyQ
+flatpak run --command=copyq com.github.hluk.copyq exit 2>/dev/null
+
+# Start CopyQ with native Wayland (NOT XWayland):
+flatpak run --command=sh com.github.hluk.copyq -c \
+  'copyq --env QT_QPA_PLATFORM=wayland'
+
+# Alternative (PPA/deb):
+QT_QPA_PLATFORM=wayland copyq
+
+# Copy some text in any app and check if CopyQ captured it
+copyq read 0
+
+# If it shows your copied text → NATIVE WAYLAND WORKS on your GNOME version!
+# If empty → XWayland bridge is still needed
+```
+
+**Method 2: Check GNOME version for wl-data-control**
+
+```bash
+# Check GNOME version
+gnome-shell --version
+# Example output: GNOME Shell 50.0
+
+# Check if mutter has wl-data-control support (check the source or release notes)
+# As of GNOME 50 (Ubuntu 26.04), there is NO wl-data-control implementation.
+# Monitor these sources for changes:
+
+# GNOME mutter merge requests:
+# https://gitlab.gnome.org/GNOME/mutter/-/merge_requests?search=data-control
+
+# CopyQ issue tracking:
+# https://github.com/hluk/CopyQ/issues/2811
+
+# GNOME Discourse:
+# https://discourse.gnome.org/ (search: "wl-data-control" or "clipboard manager")
+```
+
+**Method 3: Check CopyQ release notes for GNOME Wayland improvements**
+
+```bash
+# Check CopyQ changelog for Wayland-related changes
+# On Flatpak:
+flatpak remote-info --log flathub com.github.hluk.copyq 2>/dev/null | head -20
+
+# On GitHub:
+# https://github.com/hluk/CopyQ/releases — look for mentions of:
+#   - "GNOME Wayland"
+#   - "wl-data-control"
+#   - "mutter"
+#   - "native Wayland clipboard"
+```
+
+**Method 4: Check Wine's wl_data_device implementation status**
+
+Wine merged native Wayland clipboard support in March 2025. If GNOME adds clipboard protocols to support Wine, it may also benefit CopyQ:
+
+```bash
+# Wine Wayland status (for reference):
+# https://gitlab.winehq.org/wine/wine/-/merge_requests?search=wayland
+```
+
+### What to Watch For
+
+| Signal | What It Means | Action |
+|---|---|---|
+| GNOME mutter merge request for `wl-data-control` | Native Wayland coming to GNOME | Test with `QT_QPA_PLATFORM=wayland` |
+| CopyQ release notes mention "GNOME native Wayland" | CopyQ adapted to GNOME changes | Update CopyQ, remove XWayland overrides |
+| `wl-data-control v2` standardized | New protocol with permission model | May require user consent dialog per app |
+| Ubuntu patches mutter for clipboard | Ubuntu-specific fix | Check if patch persists across GNOME upgrades |
+
+### If Native Wayland Becomes Available
+
+When native Wayland support works on your GNOME version, you'll want to **remove the XWayland overrides**:
+
+```bash
+# Remove XWayland-specific overrides from Flatpak:
+flatpak override --user com.github.hluk.copyq \
+    --env=QT_QPA_PLATFORM= \
+    --env=GDK_BACKEND=
+
+# Or reset all overrides:
+flatpak override --user --reset com.github.hluk.copyq
+
+# Restart CopyQ
+flatpak run --command=copyq com.github.hluk.copyq exit 2>/dev/null
+flatpak run com.github.hluk.copyq &
+
+# Verify native Wayland mode:
+PID=$(pgrep -f 'copyq' | head -1)
+cat /proc/$PID/environ | tr '\0' '\n' | rg 'QT_QPA|GDK_BACKEND'
+# Should NOT show xcb or x11 — should be empty or 'wayland'
+```
+
+### See Also
+
+- [WAYLAND-ARCHITECTURE.md](WAYLAND-ARCHITECTURE.md) Section 11: "CopyQ v17 and Future Native Wayland"
+- [COMPATIBILITY-MATRIX.md](COMPATIBILITY-MATRIX.md) Section 7: "Clipboard Protocol Support by Desktop"
 
 ---
 

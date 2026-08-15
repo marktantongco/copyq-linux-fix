@@ -79,4 +79,35 @@ done
 # Display
 echo -n "  DISPLAY="; [[ -n "${DISPLAY:-}" ]] && pass "${DISPLAY} (XWayland reachable)" || warn "(unset)"
 
+# Session type and XWayland status
+info "XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-unknown}"
+pgrep -x Xwayland &>/dev/null && pass "XWayland running (PID: $(pgrep -x Xwayland | head -1))" || warn "XWayland not running"
+
+# Flatpak override environment check
+if [[ -f "${OVERRIDE}" ]]; then
+    grep -q 'QT_QPA_PLATFORM=xcb' "${OVERRIDE}" && pass "Override: QT_QPA_PLATFORM=xcb" || fail "Override: QT_QPA_PLATFORM not set to xcb"
+    grep -q 'GDK_BACKEND=x11' "${OVERRIDE}" && pass "Override: GDK_BACKEND=x11" || fail "Override: GDK_BACKEND not set to x11"
+fi
+
+# ydotool (optional)
+if command -v ydotool &>/dev/null; then
+    if pgrep -x ydotoold &>/dev/null; then
+        pass "ydotool + ydotoold available (keyboard simulation works)"
+    else
+        warn "ydotool found but ydotoold daemon not running"
+        info "  Enable: systemctl --user enable --now ydotoold"
+    fi
+else
+    info "ydotool not installed (optional — for CopyQ script keyboard simulation)"
+fi
+
+# GNOME CopyQ Clipboard Monitor extension
+if gnome-extensions list 2>/dev/null | grep -qi "copyq-clipboard-monitor\|copyq_clipboard_monitor"; then
+    warn "GNOME CopyQ Clipboard Monitor extension detected"
+    warn "  This extension is for native/X11 CopyQ only — it does NOT work with Flatpak CopyQ"
+    info "  Consider disabling it to avoid confusion"
+else
+    info "GNOME CopyQ Clipboard Monitor extension not installed (expected for Flatpak setup)"
+fi
+
 echo -e "\n  ${GREEN}Pass:${pass_count}${NC} ${YELLOW}Warn:${warn_count}${NC} ${RED}Fail:${fail_count}${NC}\n"

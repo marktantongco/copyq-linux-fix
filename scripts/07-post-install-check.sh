@@ -63,6 +63,16 @@ AUTOSTART="${HOME}/.config/autostart/com.github.hluk.copyq.desktop"
 # XWayland
 pgrep -x Xwayland &>/dev/null && pass "XWayland running" || warn "XWayland not detected (may start on demand)"
 
+# ydotool (optional)
+if command -v ydotool &>/dev/null; then
+    pgrep -x ydotoold &>/dev/null && pass "ydotool daemon running" || warn "ydotool found but ydotoold not running"
+else
+    info "ydotool not installed (optional)"
+fi
+
+# Issue #3587 warning
+echo -e "  ${YELLOW}[INFO]${NC} See docs/TROUBLESHOOTING.md Section 8 for Issue #3587 (XWayland monitoring drop)"
+
 echo -e "\n${BOLD}  ${GREEN}Pass: ${pass_count}${NC} | ${YELLOW}Warn: ${warn_count}${NC} | ${RED}Fail: ${fail_count}${NC}"
 [[ ${fail_count} -eq 0 ]] && echo -e "${GREEN}${BOLD}All critical checks passed! Press Ctrl+Alt+V to toggle CopyQ.${NC}" || echo -e "${YELLOW}Some checks failed — review above.${NC}"
 echo ""

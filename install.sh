@@ -22,7 +22,7 @@ banner() {
     echo -e "${CYAN}${BOLD}"
     echo "  ╔═══════════════════════════════════════════════════════════╗"
     echo "  ║   CopyQ + Wayland Unified Installer for Ubuntu 26.04  ║"
-    echo "  ║   Version 1.1.0 | GNOME 50 | Wayland-only            ║"
+    echo "  ║   Version 1.2.0 | GNOME 50 | Wayland-only            ║"
     echo "  ╚═══════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }

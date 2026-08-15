@@ -61,6 +61,12 @@ flatpak remotes 2>/dev/null | grep -q flathub && pass "Flathub remote configured
 
 ping -c 1 -W 3 flathub.org &>/dev/null 2>&1 && pass "Network: flathub.org reachable" || warn "Network: flathub.org unreachable"
 
+if [[ -e /dev/uinput ]] || modprobe -n uinput 2>/dev/null; then
+    pass "uinput kernel module available (ydotool compatible)"
+else
+    info "uinput module not loaded (ydotool will not work)"
+fi
+
 flatpak list 2>/dev/null | grep -qi copyq && warn "CopyQ already installed (will update)" || pass "CopyQ not installed — fresh install"
 
 echo -e "\n${BOLD}  Summary: ${GREEN}${pass_count} passed${NC}, ${YELLOW}${warn_count} warnings${NC}, ${RED}${fail_count} failures${NC}\n"

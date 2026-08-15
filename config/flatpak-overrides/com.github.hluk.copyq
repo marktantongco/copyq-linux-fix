@@ -1,10 +1,16 @@
 [Context]
-filesystems=xdg-config/gtk-3.0:ro;xdg-config/gtk-4.0:ro
+filesystems=xdg-config/gtk-3.0:ro;xdg-config/gtk-4.0:ro;xdg-config/kdeglobals:ro
 sockets=wayland;x11
 
 [Environment]
 # CRITICAL: CopyQ must use XWayland for clipboard monitoring.
 # GNOME mutter does NOT implement wl-data-control protocol.
 # These override the system-wide wayland.conf for CopyQ only.
+#
+# NOTE: XDG Desktop Portal clipboard (v1.18+) is for remote desktop
+# sessions only, NOT for third-party clipboard managers.
+#
+# WARNING (Issue #3587): QT_QPA_PLATFORM=xcb can break clipboard
+# monitoring when the main window is closed. Keep CopyQ minimized.
 QT_QPA_PLATFORM=xcb
 GDK_BACKEND=x11

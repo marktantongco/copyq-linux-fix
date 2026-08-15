@@ -12,7 +12,9 @@ and clipboard manager comparison for Ubuntu 26.04 LTS (GNOME 50, Wayland-only).
 3. [Toolkit Behavior Table](#3-toolkit-behavior-table)
 4. [Understanding the Columns](#4-understanding-the-columns)
 5. [Notes on Specific Applications](#5-notes-on-specific-applications)
-6. [References](#6-references)
+6. [Wayland Input Simulation Tools](#6-wayland-input-simulation-tools)
+7. [Clipboard Protocol Support by Desktop](#7-clipboard-protocol-support-by-desktop)
+8. [References](#8-references)
 
 ---
 
@@ -57,18 +59,24 @@ and clipboard manager comparison for Ubuntu 26.04 LTS (GNOME 50, Wayland-only).
 | 26 | **Rhythmbox** | Music Player | ✅ Yes | — | ⚠️ Rare | GTK4 native. Rarely uses clipboard. |
 | 27 | **Shotwell** | Photo Manager | ✅ Yes | — | ⚠️ Partial | GTK3/4. Image copy may not preserve full metadata through XWayland bridge. |
 | 28 | **Thunderbird** | Email Client | ✅ Yes | — | ✅ Yes | GTK3, Wayland-native. Complex clipboard (HTML email content, images) generally bridges well. |
+| 29 | **wl-clipboard** | CLI Utility | ✅ Yes | — | ✅ Yes* | Native Wayland clipboard CLI (`wl-paste`, `wl-copy`). Uses `wl_data_device_manager` protocol. Reaches CopyQ when CopyQ runs via XWayland bridge. The data goes: `wl-copy` → compositor → bridge → CopyQ. |
+| 30 | **ydotool** | Automation Tool | ✅ Yes | — | ❌ N/A | Works on BOTH X11 and Wayland via kernel `uinput` framework. Requires `ydotoold` daemon as systemd user service. Not clipboard-related but essential for simulating key presses (e.g., Ctrl+V) that CopyQ scripts might issue. See Section 6 for details. |
+| 31 | **wlrctl** | Automation Tool | ✅ Yes | — | ❌ N/A | wlroots-only input simulation tool. Works on Sway, Hyprland, and other wlroots compositors. Does NOT work on GNOME. Alternative to ydotool for wlroots users. |
+| 32 | **CopyQ GNOME Extension** | GNOME Extension | N/A | N/A | ✅ Yes* | CopyQ's own GNOME Shell extension ("CopyQ Clipboard Monitor") provides native clipboard monitoring via D-Bus. **Does NOT work when running CopyQ as Flatpak/AppImage** — the extension cannot be registered from a sandboxed environment. Works with PPA/deb installation only. See [WAYLAND-ARCHITECTURE.md](WAYLAND-ARCHITECTURE.md) Section 8. |
 
 ### Summary Statistics
 
 | Metric | Count | Percentage |
 |---|---|---|
-| Total apps tested | 28 | 100% |
-| Native Wayland | 22 | 79% |
-| XWayland only | 3 | 11% |
+| Total apps tested | 32 | 100% |
+| Native Wayland | 24 | 75% |
+| XWayland only | 3 | 9% |
 | SPECIAL (CopyQ) | 1 | 3% |
+| GNOME Extension (Flatpak-incompatible) | 1 | 3% |
 | Broken on Wayland (xdotool) | 1 | 3% |
-| Clipboard reaches CopyQ | 25 | 89% |
-| Clipboard partially works | 2 | 7% |
+| Clipboard reaches CopyQ | 27 | 84% |
+| Clipboard partially works | 2 | 6% |
+| Input simulation (not clipboard) | 2 | 6% |
 
 ---
 
@@ -273,7 +281,169 @@ This repo's `04-configure-flatpak.sh` handles the Flatpak permissions for CopyQ.
 
 ---
 
-## 6. References
+## 6. Wayland Input Simulation Tools
+
+### Why Input Simulation Matters for CopyQ
+
+CopyQ scripts and automation workflows sometimes need to simulate keyboard input — for example, typing Ctrl+V to paste a selected item into the focused application. On X11, `xdotool` was the standard tool for this, but it's **completely broken on Wayland** (uses X11 `XTest` extension, blocked by the compositor).
+
+Several alternatives exist, each with different trade-offs:
+
+### Tool Comparison
+
+| Tool | X11 | Wayland | Mechanism | Root Required | Daemon/Service | Notes |
+|---|---|---|---|---|---|
+| **xdotool** | ✅ Yes | ❌ No | X11 `XTest` extension | No | No | Broken on Wayland. Do not use. |
+| **ydotool** | ✅ Yes | ✅ Yes | Linux kernel `uinput` (virtual keyboard/mouse) | Yes* or udev rule | `ydotoold` (systemd user) | **Universal** — works on ALL Wayland compositors including GNOME, KDE, Sway, Hyprland. Creates virtual input devices at kernel level. |
+| **wlrctl** | ❌ No | ✅ Yes | wlroots `wlr_virtual_keyboard_v1` | No | No | **wlroots only** — works on Sway, Hyprland, and other wlroots compositors. Does NOT work on GNOME (mutter). |
+| **GNOME native** | — | ✅ Yes | GNOME Shell custom shortcuts + D-Bus | No | GNOME Shell | For CopyQ toggle/operations via hotkeys. No arbitrary key simulation — only registered commands. |
+| **wtype** | ❌ No | ✅ Yes | wlroots `wlr_virtual_keyboard_v1` | No | No | Sway-specific. Similar to `wlrctl` but keyboard-only. |
+
+`*` ydotool requires root OR a udev rule granting access to `/dev/uinput`.
+
+### ydotool: The Recommended Replacement
+
+ydotool is the most universal Wayland-compatible input simulation tool:
+
+**How it works:**
+
+```
+User runs: ydotool key 29:1 47:1 47:0 29:0  (simulates Ctrl+V)
+    │
+    ▼
+ydotool CLI → D-Bus/Unix socket → ydotoold daemon (systemd --user)
+    │
+    ▼
+ydotoold → kernel uinput → /dev/uinput (creates virtual keyboard device)
+    │
+    ▼
+Kernel → Compositor → Focused application receives Ctrl+V
+```
+
+**Installation and setup:**
+
+```bash
+# Install ydotool
+sudo apt install ydotool
+
+# Enable and start the ydotoold daemon (runs as systemd user service)
+systemctl --user enable --now ydotoold.service
+
+# Verify daemon is running
+systemctl --user status ydotoold.service
+
+# Test: type "hello" into the focused window
+ydotool type "hello world"
+
+# Test: simulate Ctrl+V paste
+ydotool key 29:1 47:1 47:0 29:0
+```
+
+**udev rule for non-root access (recommended):**
+
+```bash
+# Create a udev rule to allow the user group access to /dev/uinput
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"' | \
+    sudo tee /etc/udev/rules.d/80-uinput.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+# Add your user to the input group (log out and back in required)
+sudo usermod -aG input $USER
+```
+
+### When to Use Each Tool
+
+| Scenario | Recommended Tool |
+|---|---|
+| CopyQ scripts simulating Ctrl+V on GNOME | **ydotool** (universal) |
+| CopyQ scripts simulating Ctrl+V on Sway/Hyprland | **wlrctl** or **ydotool** |
+| CopyQ toggle via global hotkey | **GNOME custom shortcuts** (native, no extra tool) |
+| CopyQ operations via command line | **D-Bus** (`dbus-send --session --dest=com.github.hluk.copyq`) |
+| Legacy scripts using xdotool | **Migrate to ydotool** (closest drop-in replacement) |
+
+### See Also
+
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) Section 9 for ydotool troubleshooting with CopyQ
+- ydotool GitHub: [ReimuNotMoe/ydotool](https://github.com/ReimuNotMoe/ydotool)
+
+---
+
+## 7. Clipboard Protocol Support by Desktop
+
+### Which Desktops Support Which Clipboard Protocols
+
+The availability of clipboard-related Wayland protocols directly determines whether CopyQ can operate natively or must use the XWayland bridge:
+
+| Desktop / Compositor | `wl_data_device` (core) | `wl_data_control_v1` | `wlr-data-control-unstable-v1` | XDG Clipboard Portal | XWayland Bridge | CopyQ Mode |
+|---|---|---|---|---|---|---|
+| **GNOME (mutter)** | ✅ Yes (per-app, focus-gated) | ❌ **No** | ❌ **No** | ⚠️ Partial (remote desktop only) | ✅ Yes | **XWayland only** |
+| **KDE Plasma (kwin)** | ✅ Yes | ✅ Yes | N/A (uses wl-data-control) | ✅ Yes | ✅ Yes | **Native Wayland** ✅ |
+| **Sway** | ✅ Yes | N/A | ✅ Yes | ⚠️ (via xdg-desktop-portal-wlr) | ✅ Yes | **Native Wayland** ✅ |
+| **Hyprland** | ✅ Yes | N/A | ✅ Yes | ⚠️ (via xdg-desktop-portal-hyprland) | ✅ Yes | **Native Wayland** ✅ |
+| **wlroots (generic)** | ✅ Yes | N/A | ✅ Yes | Varies | ✅ Yes | **Native Wayland** ✅ |
+| **COSMIC (System76)** | ✅ Yes | N/A | ⚠️ Planned (Smithay) | TBA | TBA | TBA |
+
+### Protocol Explanations
+
+**`wl_data_device` (core Wayland protocol):**
+- Available on **all** Wayland compositors (it's part of the core protocol)
+- Allows focused apps to copy/paste
+- **Does NOT** allow background clipboard monitoring — focus is required
+- This is why CopyQ cannot use it alone for clipboard management
+
+**`wl_data_control_v1` (unstable):**
+- KDE's preferred protocol for clipboard managers
+- Allows reading clipboard without focus
+- Allows monitoring clipboard changes in the background
+- **GNOME does not implement this** (privacy decision)
+
+**`wlr-data-control-unstable-v1` (unstable, wlroots):**
+- wlroots' equivalent to `wl_data_control_v1`
+- Available on all wlroots-based compositors (Sway, Hyprland, etc.)
+- Same capabilities: background monitoring, focus-less reading
+- **GNOME does not implement this** (mutter is not wlroots-based)
+
+**XDG Clipboard Portal:**
+- Added in xdg-desktop-portal 1.18 (September 2023)
+- Extension of the Remote Desktop portal
+- Designed for **remote desktop clipboard sharing**, not clipboard managers
+- Requires user confirmation per action
+- Not suitable for continuous background monitoring
+- See [WAYLAND-ARCHITECTURE.md](WAYLAND-ARCHITECTURE.md) Section 9 for detailed analysis
+
+### The GNOME Gap
+
+GNOME's mutter compositor is the only major compositor that:
+
+1. **Does NOT implement `wl_data_control_v1`** (KDE does)
+2. **Does NOT implement `wlr-data-control-unstable-v1`** (Sway/Hyprland do)
+3. **Has no clipboard manager-specific protocol** (no alternative exists)
+
+This is why CopyQ on GNOME must use the XWayland bridge. The bridge translates Wayland clipboard events into X11 selection events, which CopyQ can then monitor using the traditional X11 clipboard model.
+
+### Implications for CopyQ Users
+
+```
+If you use GNOME (Ubuntu default):
+    → Must use XWayland bridge (this repo's approach)
+    → Clipboard portal won't help (designed for remote desktop)
+    → GNOME Shell extension won't work with Flatpak
+
+If you use KDE Plasma:
+    → Can use native Wayland (no XWayland needed)
+    → Set QT_QPA_PLATFORM=wayland (default on KDE)
+    → CopyQ monitors clipboard via wl-data-control
+
+If you use Sway / Hyprland / other wlroots:
+    → Can use native Wayland (no XWayland needed)
+    → CopyQ monitors clipboard via wlr-data-control
+    → ydotool or wlrctl for input simulation
+```
+
+---
+
+## 8. References
 
 ### Application Sources
 

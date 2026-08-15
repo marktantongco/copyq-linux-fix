@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CopyQ Linux Fix — Clipboard Manager for Ubuntu 26.04 Wayland</title>
-    <meta name="description" content="Install CopyQ 16.0.0 clipboard manager on Ubuntu 26.04 LTS with full Wayland/XWayland compatibility.">
+    <meta name="description" content="Install CopyQ 16.0.0 clipboard manager on Ubuntu 26.04 LTS with full Wayland/XWayland compatibility. Includes Issue #3587 workaround and known limitations.">
     <meta property="og:title" content="CopyQ Linux Fix — Clipboard Manager for Ubuntu 26.04 Wayland">
-    <meta property="og:description" content="The complete workaround for CopyQ on Ubuntu 26.04 LTS Wayland-only GNOME 50.">
+    <meta property="og:description" content="The complete workaround for CopyQ on Ubuntu 26.04 LTS Wayland-only GNOME 50. Flatpak v16.0.0, XWayland bridge, and known limitations documented.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://marktantongco.github.io/copyq-linux-fix/">
     <meta name="twitter:card" content="summary_large_image">
@@ -26,6 +26,8 @@
         html{scroll-behavior:smooth;scroll-padding-top:80px}
         body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:linear-gradient(170deg,var(--bg-s),var(--bg-e));color:var(--text);line-height:1.65;min-height:100vh;-webkit-font-smoothing:antialiased}
         ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:var(--bg-s)}::-webkit-scrollbar-thumb{background:#2a2a3d;border-radius:4px}
+
+        /* Navbar */
         .navbar{position:sticky;top:0;z-index:100;background:var(--nav-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--card-bd);padding:0 24px}
         .nav-inner{max-width:var(--mw);margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px}
         .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);font-weight:700;font-size:1.1rem}
@@ -36,11 +38,16 @@
         .nav-gh{display:inline-flex;align-items:center;gap:6px;background:var(--accent-d);color:var(--accent)!important;border:1px solid rgba(0,212,170,.2);border-radius:8px;padding:7px 16px!important;font-weight:600!important;transition:background .2s,border-color .2s!important}
         .nav-gh:hover{background:rgba(0,212,170,.2);border-color:rgba(0,212,170,.35)}
         .mob-btn{display:none;background:none;border:none;color:var(--text);cursor:pointer;padding:4px}
+
+        /* Shared section */
         section{padding:80px 24px}.c{max-width:var(--mw);margin:0 auto}
         .s-label{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:16px;padding:5px 14px;background:var(--accent-d);border:1px solid rgba(0,212,170,.15);border-radius:20px}
         .s-title{font-size:clamp(1.75rem,4vw,2.5rem);font-weight:800;line-height:1.2;margin-bottom:16px;letter-spacing:-.02em}
         .s-desc{color:var(--muted);font-size:1.05rem;max-width:640px;line-height:1.7}
         .fi{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease}.fi.vis{opacity:1;transform:translateY(0)}
+        .sec-alt{background:rgba(0,0,0,.2)}
+
+        /* Hero */
         .hero{padding:120px 24px 100px;text-align:center;position:relative;overflow:hidden}
         .hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(0,212,170,.07),transparent 70%);pointer-events:none}
         .hero h1{font-size:clamp(2rem,5.5vw,3.5rem);font-weight:800;line-height:1.15;letter-spacing:-.03em;margin-bottom:20px;position:relative}
@@ -55,66 +62,111 @@
         .hc-inner{background:var(--code-bg);border-radius:11px;padding:20px 24px;display:flex;align-items:center;gap:14px}
         .hc-inner .prompt{color:var(--accent);font-family:'JetBrains Mono',monospace;font-weight:600;font-size:.95rem;user-select:none;flex-shrink:0}
         .hc-inner code{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text);word-break:break-all}
+
+        /* Problem cards */
         .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:48px}
         .pcard{background:var(--card);border:1px solid var(--card-bd);border-radius:var(--r);padding:32px 28px;transition:border-color .3s,transform .3s}
         .pcard:hover{border-color:rgba(255,71,87,.3);transform:translateY(-2px)}
         .p-icon{width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:20px}
         .p-icon.red{background:rgba(255,71,87,.12);color:var(--err)}.p-icon.org{background:rgba(245,166,35,.12);color:var(--warn)}.p-icon.pur{background:var(--purple-d);color:var(--purple)}
         .pcard h3{font-size:1.1rem;font-weight:700;margin-bottom:10px}.pcard p{color:var(--muted);font-size:.92rem;line-height:1.65}
-        .arch-sec{background:rgba(0,0,0,.2)}
+
+        /* Architecture diagram */
         .arch-box{margin-top:40px;background:var(--card);border:1px solid var(--card-bd);border-radius:var(--r);padding:40px 24px;overflow-x:auto}
-        .arch-flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;min-height:180px}
-        .an{background:var(--code-bg);border:1px solid var(--code-bd);border-radius:var(--rs);padding:18px 22px;text-align:center;min-width:130px;transition:border-color .3s,transform .3s}
-        .an:hover{transform:translateY(-2px)}.an.cq{border-color:rgba(0,212,170,.4)}.an.xw{border-color:rgba(245,166,35,.4)}.an.mt{border-color:rgba(124,106,239,.4)}.an.ap{border-color:rgba(255,255,255,.12)}
-        .ni{font-size:1.2rem;margin-bottom:6px;display:block}.nt{font-size:.82rem;font-weight:700;display:block;margin-bottom:3px}.ns{font-size:.7rem;color:var(--muted);display:block}
-        .aa{display:flex;flex-direction:column;align-items:center;padding:0 4px;color:var(--muted);font-size:.65rem;font-weight:600;min-width:68px}.aa svg{color:var(--muted)}.aa .al{white-space:nowrap}
-        .arch-leg{display:flex;justify-content:center;gap:28px;margin-top:28px;flex-wrap:wrap}.leg-i{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted)}.ldot{width:10px;height:10px;border-radius:50%}.ldot.x{background:var(--warn)}.ldot.w{background:var(--purple)}.ldot.b{background:var(--accent)}
+        .arch-flow{display:flex;flex-direction:column;align-items:center;gap:0;max-width:560px;margin:0 auto}
+        .arch-row{display:flex;align-items:center;justify-content:center;gap:16px;width:100%}
+        .an{background:var(--code-bg);border:1px solid var(--code-bd);border-radius:var(--rs);padding:16px 22px;text-align:center;min-width:160px;transition:border-color .3s,transform .3s}
+        .an:hover{transform:translateY(-2px)}
+        .an.cq{border-color:rgba(0,212,170,.4)}.an.xw{border-color:rgba(245,166,35,.4)}.an.mt{border-color:rgba(124,106,239,.4)}.an.ap{border-color:rgba(255,255,255,.12)}
+        .ni{font-size:1.15rem;margin-bottom:4px;display:block}.nt{font-size:.82rem;font-weight:700;display:block;margin-bottom:2px}.ns{font-size:.7rem;color:var(--muted);display:block}
+        .arch-arrow{display:flex;flex-direction:column;align-items:center;padding:8px 0;color:var(--muted)}
+        .arch-arrow svg{color:var(--muted)}.arch-arrow .al{font-size:.7rem;font-weight:600;white-space:nowrap}
+        .arch-label-row{display:flex;justify-content:center;margin-bottom:16px}
+        .arch-tag{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;color:var(--accent);background:var(--accent-d);padding:4px 14px;border-radius:20px;border:1px solid rgba(0,212,170,.15)}
+        .arch-note{margin-top:20px;padding:14px 20px;background:rgba(255,71,87,.06);border:1px solid rgba(255,71,87,.15);border-radius:var(--rs);color:var(--muted);font-size:.85rem;line-height:1.6;text-align:center;max-width:560px;margin-left:auto;margin-right:auto}
+        .arch-note strong{color:var(--err)}
+        .arch-leg{display:flex;justify-content:center;gap:28px;margin-top:24px;flex-wrap:wrap}.leg-i{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted)}.ldot{width:10px;height:10px;border-radius:50%}.ldot.x{background:var(--warn)}.ldot.w{background:var(--purple)}.ldot.b{background:var(--accent)}
+
+        /* Solution cards */
         .sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-top:48px}
         .scard{background:var(--card);border:1px solid var(--card-bd);border-radius:var(--r);padding:32px 28px;transition:border-color .3s,transform .3s}
         .scard:hover{border-color:rgba(0,212,170,.3);transform:translateY(-2px)}
         .s-icon{width:48px;height:48px;border-radius:10px;background:var(--accent-d);color:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:20px}
         .scard h3{font-size:1.1rem;font-weight:700;margin-bottom:10px}.scard p{color:var(--muted);font-size:.92rem;line-height:1.65}
         .ctag{display:inline-block;margin-top:16px;font-size:.75rem;font-weight:600;color:var(--accent);background:var(--accent-d);padding:4px 12px;border-radius:20px}
-        .inst-sec{background:rgba(0,0,0,.2)}
-        .igrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:24px;margin-top:48px}
-        .icard{background:var(--card);border:1px solid var(--card-bd);border-radius:var(--r);overflow:hidden}
-        .icard-h{padding:24px 28px 0;display:flex;align-items:center;justify-content:space-between}
-        .icard-h h3{font-size:1.1rem;font-weight:700}
-        .istep{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;color:var(--accent);background:var(--accent-d);padding:4px 12px;border-radius:20px}
-        .icard-b{padding:16px 28px 28px}.icard-b p{color:var(--muted);font-size:.9rem;margin-bottom:16px;line-height:1.6}
+
+        /* Limitation cards */
+        .lgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;margin-top:48px}
+        .lcard{background:var(--card);border:1px solid rgba(245,166,35,.2);border-radius:var(--r);padding:28px 24px;transition:border-color .3s,transform .3s}
+        .lcard:hover{border-color:rgba(245,166,35,.4);transform:translateY(-2px)}
+        .lcard-h{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+        .lcard-icon{width:40px;height:40px;border-radius:10px;background:rgba(245,166,35,.12);color:var(--warn);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .lcard-h h3{font-size:1.05rem;font-weight:700;color:var(--warn)}
+        .lcard p{color:var(--muted);font-size:.9rem;line-height:1.65}
+        .lcard code{font-family:'JetBrains Mono',monospace;font-size:.82rem;background:var(--code-bg);border:1px solid var(--code-bd);padding:2px 8px;border-radius:4px;color:var(--text)}
+
+        /* Code blocks */
         .cb{position:relative;background:var(--code-bg);border:1px solid var(--code-bd);border-radius:var(--rs);overflow:hidden}
         .cb-h{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--code-bd);background:rgba(0,0,0,.2)}
         .cb-h span{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--muted)}
         .cpb{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:.75rem;font-weight:500;transition:all .2s}
         .cpb:hover{background:rgba(255,255,255,.1);color:var(--text)}.cpb.ok{color:var(--accent);border-color:rgba(0,212,170,.3)}
         .cb-b{padding:16px 20px;overflow-x:auto}.cb-b code{font-family:'JetBrains Mono',monospace;font-size:.82rem;line-height:1.7;color:var(--text);white-space:pre}
-        .comp-sec{background:rgba(0,0,0,.2)}
-        .comp-w{margin-top:40px;overflow-x:auto;border-radius:var(--r);border:1px solid var(--card-bd)}
-        .ctbl{width:100%;border-collapse:collapse;font-size:.9rem}
-        .ctbl thead{background:rgba(0,0,0,.3)}.ctbl th{text-align:left;padding:14px 20px;font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--card-bd)}
-        .ctbl td{padding:14px 20px;border-bottom:1px solid var(--card-bd);color:var(--text)}.ctbl tbody tr:last-child td{border-bottom:none}.ctbl tbody tr{transition:background .2s}.ctbl tbody tr:hover{background:rgba(255,255,255,.02)}
-        .badge{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:600;padding:3px 12px;border-radius:20px}
-        .badge.ok{color:var(--ok);background:rgba(0,212,170,.1)}.badge.wn{color:var(--warn);background:rgba(245,166,35,.1)}.badge.er{color:var(--err);background:rgba(255,71,87,.1)}
-        .bdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}.bdot.g{background:var(--ok)}.bdot.y{background:var(--warn)}.bdot.r{background:var(--err)}
+
+        /* Install cards */
+        .igrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:24px;margin-top:48px}
+        .icard{background:var(--card);border:1px solid var(--card-bd);border-radius:var(--r);overflow:hidden}
+        .icard-h{padding:24px 28px 0;display:flex;align-items:center;justify-content:space-between}
+        .icard-h h3{font-size:1.1rem;font-weight:700}
+        .istep{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;color:var(--accent);background:var(--accent-d);padding:4px 12px;border-radius:20px}
+        .icard-b{padding:16px 28px 28px}.icard-b p{color:var(--muted);font-size:.9rem;margin-bottom:16px;line-height:1.6}
+        .icard.rec{border-color:rgba(0,212,170,.25)}
+        .rec-badge{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;color:var(--accent);background:var(--accent-d);border:1px solid rgba(0,212,170,.2);padding:3px 10px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em}
+        .uninstall-row{margin-top:32px;padding-top:32px;border-top:1px solid var(--card-bd)}
+        .uninstall-row h3{font-size:1.05rem;font-weight:700;margin-bottom:8px}.uninstall-row p{color:var(--muted);font-size:.9rem;margin-bottom:16px;line-height:1.6}
+        .uninstall-row a{color:var(--accent);text-decoration:none}.uninstall-row a:hover{text-decoration:underline}
+
+        /* Tools grid */
+        .tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:48px}
+        .tcard{background:var(--card);border:1px solid var(--card-bd);border-radius:var(--r);padding:28px 24px;transition:border-color .3s,transform .3s}
+        .tcard:hover{border-color:rgba(0,212,170,.25);transform:translateY(-2px)}
+        .tcard-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+        .tcard-icon{width:36px;height:36px;border-radius:8px;background:var(--accent-d);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .tcard-h h3{font-size:1rem;font-weight:700}
+        .tcard p{color:var(--muted);font-size:.88rem;line-height:1.6}
+        .tcard code{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:var(--code-bg);border:1px solid var(--code-bd);padding:1px 6px;border-radius:4px;color:var(--text)}
+        .tcard.future{border-style:dashed;border-color:rgba(124,106,239,.25)}.tcard.future:hover{border-color:rgba(124,106,239,.4)}
+        .tcard.future .tcard-icon{background:var(--purple-d);color:var(--purple)}
+        .future-tag{display:inline-block;margin-top:10px;font-size:.7rem;font-weight:600;color:var(--purple);background:var(--purple-d);padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
+
+        /* Footer */
         footer{border-top:1px solid var(--card-bd);padding:48px 24px 32px}
         .ft-inner{max-width:var(--mw);margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:32px}
         .ft-brand p{color:var(--muted);font-size:.85rem;margin-top:8px;max-width:300px;line-height:1.6}
         .ft-links h4{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
         .ft-links ul{list-style:none}.ft-links li{margin-bottom:8px}.ft-links a{color:var(--muted);text-decoration:none;font-size:.88rem;transition:color .2s}.ft-links a:hover{color:var(--text)}
         .ft-bot{max-width:var(--mw);margin:32px auto 0;padding-top:24px;border-top:1px solid var(--card-bd);text-align:center;color:var(--muted);font-size:.8rem}
+
+        /* Toast */
         .toast{position:fixed;bottom:24px;right:24px;background:var(--code-bg);border:1px solid rgba(0,212,170,.3);color:var(--accent);padding:12px 20px;border-radius:var(--rs);font-size:.85rem;font-weight:500;z-index:200;opacity:0;transform:translateY(12px);transition:all .3s ease;pointer-events:none}
         .toast.show{opacity:1;transform:translateY(0)}
+
+        /* Responsive */
         @media(max-width:768px){
             .nav-links{display:none}.nav-links.open{display:flex;flex-direction:column;position:absolute;top:64px;left:0;right:0;background:var(--nav-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--card-bd);padding:12px 24px 20px;gap:4px}
             .mob-btn{display:block}section{padding:56px 16px}.hero{padding:80px 16px 64px}
             .hc-inner{flex-direction:column;align-items:flex-start}
-            .igrid{grid-template-columns:1fr}
-            .arch-flow{flex-direction:column;gap:8px}.aa{transform:rotate(90deg);min-width:auto;padding:4px 0}
+            .igrid{grid-template-columns:1fr}.lgrid{grid-template-columns:1fr}
+            .arch-flow{max-width:100%}
+            .an{min-width:140px;padding:14px 16px}
+            .arch-row{flex-direction:column;gap:12px}
             .ft-inner{flex-direction:column}
         }
     </style>
 </head>
 <body>
+
+<!-- Navbar -->
 <nav class="navbar"><div class="nav-inner">
     <a href="#" class="nav-logo">
         <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#00d4aa"/><path d="M8 10h6v2H10v2h3v2h-3v4H8V10zm10 0h2l3 5.5V10h2v10h-2L20 14.5V20h-2V10z" fill="#0a0a12"/></svg>
@@ -135,9 +187,10 @@
     </ul>
 </div></nav>
 
+<!-- Hero -->
 <section class="hero" id="hero"><div class="c fi">
     <h1>CopyQ on <span class="hl">Ubuntu 26.04 Wayland</span></h1>
-    <p class="hero-sub">Ubuntu 26.04 LTS is the first Wayland-only LTS release — no Xorg session available. CopyQ 16.0.0 from Flathub brings clipboard management back, bridging X11 and native Wayland apps seamlessly.</p>
+    <p class="hero-sub">Ubuntu 26.04 LTS is the first Wayland-only LTS release with no Xorg session available. CopyQ 16.0.0 from Flathub brings clipboard management back via the XWayland bridge.</p>
     <div class="hero-ctas">
         <a href="#install" class="btn btn-p">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
@@ -159,6 +212,7 @@
     </div>
 </div></section>
 
+<!-- Problem -->
 <section id="problem"><div class="c fi">
     <div class="s-label">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -171,76 +225,106 @@
             <div class="p-icon red">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             </div>
-            <h3>GNOME 50 is Wayland-Only</h3>
-            <p>Ubuntu 26.04 LTS is the first Wayland-only LTS — no Xorg session available. Every application must function under the Wayland compositor.</p>
+            <h3>GNOME 50 Wayland-Only</h3>
+            <p>Ubuntu 26.04 LTS is the first Wayland-only LTS — no Xorg session available. Every application must function under the Wayland compositor, with no fallback to X11.</p>
         </div>
         <div class="pcard fi">
             <div class="p-icon org">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
             <h3>No wl-data-control Protocol</h3>
-            <p>GNOME 50 mutter does not implement the wl-data-control protocol, so clipboard managers cannot intercept or manage clipboard contents natively.</p>
+            <p>GNOME 50 mutter does not implement the wl-data-control protocol for privacy reasons. Clipboard managers cannot intercept or manage clipboard contents natively on Wayland.</p>
         </div>
         <div class="pcard fi">
             <div class="p-icon pur">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
             </div>
-            <h3>PPA Stuck at v13</h3>
-            <p>The official CopyQ PPA has not been updated past version 13.0.0. The latest release, CopyQ 16.0.0, is only available from Flathub.</p>
+            <h3>PPA Stuck at v13.0.0</h3>
+            <p>The Launchpad PPA has not published CopyQ for 26.04 and is stuck at version 13.0.0. The latest release, CopyQ 16.0.0, is available from Flathub with improved Wayland support.</p>
         </div>
     </div>
 </div></section>
 
-<section id="architecture" class="arch-sec"><div class="c fi">
+<!-- Architecture -->
+<section id="architecture" class="sec-alt"><div class="c fi">
     <div class="s-label">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
         Architecture
     </div>
-    <h2 class="s-title">XWayland bridge: how clipboard sync works</h2>
-    <p class="s-desc">CopyQ uses X11 clipboard while other apps use native Wayland. The XWayland bridge inside the compositor translates between the two protocols automatically.</p>
+    <h2 class="s-title">How clipboard data flows through XWayland</h2>
+    <p class="s-desc">CopyQ uses the X11 clipboard while all other apps use native Wayland. The XWayland bridge inside the compositor translates between the two protocols automatically.</p>
     <div class="arch-box">
+        <div class="arch-label-row">
+            <span class="arch-tag">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Data Flow Diagram
+            </span>
+        </div>
         <div class="arch-flow">
-            <div class="an cq">
-                <span class="ni"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>
-                <span class="nt">CopyQ</span>
-                <span class="ns">X11 Clipboard</span>
+            <!-- Row 1: Apps -->
+            <div class="arch-row">
+                <div class="an ap">
+                    <span class="ni"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e4e4ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></span>
+                    <span class="nt">Firefox</span>
+                    <span class="ns">Native Wayland</span>
+                </div>
+                <div class="an ap">
+                    <span class="ni"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e4e4ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
+                    <span class="nt">GNOME Terminal</span>
+                    <span class="ns">Native Wayland</span>
+                </div>
             </div>
-            <div class="aa">
-                <svg width="40" height="16" viewBox="0 0 40 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="8" x2="38" y2="8"/><polyline points="32,3 38,8 32,13"/></svg>
-                <span class="al">X11 Selection</span>
-            </div>
-            <div class="an xw">
-                <span class="ni"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
-                <span class="nt">XWayland</span>
-                <span class="ns">Compatibility Bridge</span>
-            </div>
-            <div class="aa">
-                <svg width="40" height="16" viewBox="0 0 40 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="8" x2="38" y2="8"/><polyline points="32,3 38,8 32,13"/></svg>
+            <div class="arch-arrow">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="7 17 12 22 17 17"/></svg>
                 <span class="al">Wayland Protocol</span>
             </div>
-            <div class="an mt">
-                <span class="ni"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7c6aef" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
-                <span class="nt">Mutter</span>
-                <span class="ns">GNOME 50 Compositor</span>
+            <!-- Row 2: Mutter -->
+            <div class="arch-row">
+                <div class="an mt">
+                    <span class="ni"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c6aef" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                    <span class="nt">GNOME mutter (GNOME 50)</span>
+                    <span class="ns">Compositor — No wl-data-control</span>
+                </div>
             </div>
-            <div class="aa">
-                <svg width="40" height="16" viewBox="0 0 40 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="8" x2="38" y2="8"/><polyline points="32,3 38,8 32,13"/></svg>
-                <span class="al">Native Wayland</span>
+            <div class="arch-arrow">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="7 17 12 22 17 17"/></svg>
+                <span class="al">X11 Compatibility Layer</span>
             </div>
-            <div class="an ap">
-                <span class="ni"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e4e4ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></span>
-                <span class="nt">Firefox / GNOME Apps</span>
-                <span class="ns">Native Wayland Clipboard</span>
+            <!-- Row 3: XWayland -->
+            <div class="arch-row">
+                <div class="an xw">
+                    <span class="ni"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+                    <span class="nt">XWayland Bridge</span>
+                    <span class="ns">X11 Compatibility Layer</span>
+                </div>
+            </div>
+            <div class="arch-arrow">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="7 17 12 22 17 17"/></svg>
+                <span class="al">X11 Clipboard</span>
+            </div>
+            <!-- Row 4: CopyQ -->
+            <div class="arch-row">
+                <div class="an cq">
+                    <span class="ni"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>
+                    <span class="nt">CopyQ 16.0.0</span>
+                    <span class="ns">QT_QPA_PLATFORM=xcb</span>
+                </div>
             </div>
         </div>
+        <!-- Legend -->
         <div class="arch-leg">
-            <div class="leg-i"><span class="ldot x"></span> X11 Protocol</div>
-            <div class="leg-i"><span class="ldot b"></span> XWayland Bridge</div>
-            <div class="leg-i"><span class="ldot w"></span> Wayland Protocol</div>
+            <div class="leg-i"><span class="ldot b"></span> CopyQ (X11)</div>
+            <div class="leg-i"><span class="ldot x"></span> XWayland Bridge</div>
+            <div class="leg-i"><span class="ldot w"></span> Wayland Native</div>
+        </div>
+        <!-- Note -->
+        <div class="arch-note">
+            <strong>Note:</strong> GNOME Shell Extension (CopyQ Clipboard Monitor) cannot work inside the Flatpak sandbox. The XWayland bridge approach is the only viable path on GNOME 50.
         </div>
     </div>
 </div></section>
 
+<!-- Solution -->
 <section id="solution"><div class="c fi">
     <div class="s-label">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -254,15 +338,15 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
             </div>
             <h3>XWayland Bridge</h3>
-            <p>Configures CopyQ to use X11 clipboard through XWayland. The compositor bridges X11 selections to native Wayland clipboard, enabling cross-protocol sync.</p>
+            <p>Forces CopyQ through the X11 compatibility layer. Sets <code style="font-family:'JetBrains Mono',monospace;font-size:.82rem;background:var(--code-bg);border:1px solid var(--code-bd);padding:1px 6px;border-radius:4px;color:var(--text)">QT_QPA_PLATFORM=xcb</code> and <code style="font-family:'JetBrains Mono',monospace;font-size:.82rem;background:var(--code-bg);border:1px solid var(--code-bd);padding:1px 6px;border-radius:4px;color:var(--text)">GDK_BACKEND=x11</code>. All other apps stay on native Wayland.</p>
             <span class="ctag">Clipboard Bridge</span>
         </div>
         <div class="scard fi">
             <div class="s-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
             </div>
-            <h3>Flatpak v16</h3>
-            <p>Installs CopyQ 16.0.0 from Flathub (PPA stuck at 13.0.0) with proper Flatpak permissions and portal access for Wayland and X11.</p>
+            <h3>Flatpak v16.0.0</h3>
+            <p>Latest CopyQ from Flathub. Includes per-MIME size limits, OOM protection, and improved Wayland support. The PPA is stuck at v13.0.0 and not published for 26.04.</p>
             <span class="ctag">Flathub Package</span>
         </div>
         <div class="scard fi">
@@ -270,13 +354,44 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001"/></svg>
             </div>
             <h3>GNOME Shortcuts</h3>
-            <p>Configures global keyboard shortcuts via GNOME settings so you can toggle CopyQ, show the clipboard history, and paste items from anywhere.</p>
+            <p>Custom keybindings registered via gsettings. <code style="font-family:'JetBrains Mono',monospace;font-size:.82rem;background:var(--code-bg);border:1px solid var(--code-bd);padding:1px 6px;border-radius:4px;color:var(--text)">Ctrl+Alt+V</code> (toggle), <code style="font-family:'JetBrains Mono',monospace;font-size:.82rem;background:var(--code-bg);border:1px solid var(--code-bd);padding:1px 6px;border-radius:4px;color:var(--text)">Ctrl+Alt+Shift+V</code> (menu). No native hotkey support on GNOME Wayland.</p>
             <span class="ctag">Keyboard Shortcuts</span>
         </div>
     </div>
 </div></section>
 
-<section id="install" class="inst-sec"><div class="c fi">
+<!-- Known Limitations -->
+<section id="limitations" class="sec-alt"><div class="c fi">
+    <div class="s-label" style="color:var(--warn);background:rgba(245,166,35,.1);border-color:rgba(245,166,35,.2)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Known Limitations
+    </div>
+    <h2 class="s-title">Caveats of the XWayland bridge approach</h2>
+    <p class="s-desc">These are known issues with no complete fix yet. Understanding them helps avoid confusion when clipboard monitoring stops unexpectedly.</p>
+    <div class="lgrid">
+        <div class="lcard fi">
+            <div class="lcard-h">
+                <div class="lcard-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <h3>Issue #3587: X11 Connection Drop</h3>
+            </div>
+            <p>Clipboard monitoring may stop when CopyQ's main window is closed under XWayland. This happens because <code>QT_QPA_PLATFORM=xcb</code> can break the X11 connection lifecycle when the window is fully closed. <strong style="color:var(--text)">Workaround:</strong> keep CopyQ minimized instead of closed, or use tray-only mode to avoid the window lifecycle issue entirely.</p>
+        </div>
+        <div class="lcard fi">
+            <div class="lcard-h">
+                <div class="lcard-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                </div>
+                <h3>No Flatpak GNOME Extension</h3>
+            </div>
+            <p>CopyQ's built-in GNOME Shell extension (<strong style="color:var(--text)">CopyQ Clipboard Monitor</strong>) provides native clipboard monitoring, but it cannot be registered from inside a Flatpak sandbox. The extension requires access to GNOME Shell's D-Bus interface, which is not available to sandboxed applications. The XWayland bridge remains the only functional path.</p>
+        </div>
+    </div>
+</div></section>
+
+<!-- Install -->
+<section id="install"><div class="c fi">
     <div class="s-label">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         Install
@@ -284,13 +399,17 @@
     <h2 class="s-title">Get up and running in one command</h2>
     <p class="s-desc">Clone the repo, make the scripts executable, and run the installer. It handles system checks, Flatpak setup, environment configuration, and shortcut setup.</p>
     <div class="igrid">
-        <div class="icard fi">
+        <!-- Recommended: Flatpak -->
+        <div class="icard rec fi">
             <div class="icard-h">
-                <h3>Install</h3>
-                <span class="istep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Step 1</span>
+                <h3>Recommended: Flatpak Installer</h3>
             </div>
             <div class="icard-b">
-                <p>Clone the repository and run the unified installer. It checks your system, installs CopyQ 16.0.0 from Flathub, configures XWayland bridge, and sets up keyboard shortcuts.</p>
+                <span class="rec-badge">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Recommended
+                </span>
+                <p>Clone the repository and run the unified installer. It checks your system, installs CopyQ 16.0.0 from Flathub, configures the XWayland bridge, and sets up keyboard shortcuts.</p>
                 <div class="cb">
                     <div class="cb-h"><span>Terminal</span><button class="cpb" onclick="copyCode(this,'git clone https://github.com/marktantongco/copyq-linux-fix.git && cd copyq-linux-fix && chmod +x install.sh scripts/*.sh && ./install.sh')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button></div>
                     <div class="cb-b"><code>git clone https://github.com/marktantongco/copyq-linux-fix.git && \
@@ -300,102 +419,76 @@
                 </div>
             </div>
         </div>
+        <!-- Alternative: .deb -->
         <div class="icard fi">
             <div class="icard-h">
-                <h3>Uninstall</h3>
-                <span class="istep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Step 2</span>
+                <h3>Alternative: Rootless .deb</h3>
             </div>
             <div class="icard-b">
-                <p>Remove all configuration, shortcuts, and Flatpak overrides. The Flatpak package itself is not removed — use your package manager if needed.</p>
+                <p>For systems without Flatpak, download and install the rootless .deb package directly. This does not include automatic shortcut setup.</p>
                 <div class="cb">
-                    <div class="cb-h"><span>Terminal</span><button class="cpb" onclick="copyCode(this,'./install.sh --uninstall')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button></div>
-                    <div class="cb-b"><code>./install.sh --uninstall</code></div>
+                    <div class="cb-h"><span>Terminal</span><button class="cpb" onclick="copyCode(this,'curl -sSL https://github.com/marktantongco/copyq-linux-fix/releases/latest/download/copyq-linux-fix.deb -o copyq-linux-fix.deb && sudo dpkg -i copyq-linux-fix.deb')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button></div>
+                    <div class="cb-b"><code>curl -sSL https://github.com/marktantongco/copyq-linux-fix/\
+  releases/latest/download/copyq-linux-fix.deb \
+  -o copyq-linux-fix.deb && \
+  sudo dpkg -i copyq-linux-fix.deb</code></div>
                 </div>
             </div>
         </div>
     </div>
+    <!-- Uninstall -->
+    <div class="uninstall-row">
+        <h3>Uninstall</h3>
+        <p>Remove all configuration, shortcuts, and Flatpak overrides. The Flatpak package itself is not removed.</p>
+        <div class="cb" style="max-width:480px">
+            <div class="cb-h"><span>Terminal</span><button class="cpb" onclick="copyCode(this,'./install.sh --uninstall')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button></div>
+            <div class="cb-b"><code>./install.sh --uninstall</code></div>
+        </div>
+        <p style="margin-top:12px;font-size:.85rem">Having issues? <a href="https://github.com/marktantongco/copyq-linux-fix/tree/main/docs/TROUBLESHOOTING.md" target="_blank" rel="noopener">Read the troubleshooting guide</a></p>
+    </div>
 </div></section>
 
-<section id="compatibility" class="comp-sec"><div class="c fi">
+<!-- Tools & Alternatives -->
+<section id="tools" class="sec-alt"><div class="c fi">
     <div class="s-label">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-        Compatibility
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        Tools & Alternatives
     </div>
-    <h2 class="s-title">Application compatibility matrix</h2>
-    <p class="s-desc">Clipboard sharing between CopyQ and other applications through the XWayland bridge on Ubuntu 26.04 LTS GNOME 50.</p>
-    <div class="comp-w">
-        <table class="ctbl">
-            <thead>
-                <tr>
-                    <th>Application</th>
-                    <th>Toolkit</th>
-                    <th>Protocol</th>
-                    <th>Copy to CopyQ</th>
-                    <th>Paste from CopyQ</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Firefox</td>
-                    <td>GTK (Wayland)</td>
-                    <td>Native Wayland</td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                </tr>
-                <tr>
-                    <td>Chrome / Chromium</td>
-                    <td>GTK (Wayland)</td>
-                    <td>Native Wayland</td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                </tr>
-                <tr>
-                    <td>GNOME Terminal</td>
-                    <td>GTK (Wayland)</td>
-                    <td>Native Wayland</td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                </tr>
-                <tr>
-                    <td>VS Code</td>
-                    <td>Electron (Wayland)</td>
-                    <td>Native Wayland</td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                </tr>
-                <tr>
-                    <td>LibreOffice</td>
-                    <td>GTK (XWayland)</td>
-                    <td>X11 via XWayland</td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                </tr>
-                <tr>
-                    <td>GIMP</td>
-                    <td>GTK (XWayland)</td>
-                    <td>X11 via XWayland</td>
-                    <td><span class="badge wn"><span class="bdot y"></span> Partial</span></td>
-                    <td><span class="badge ok"><span class="bdot g"></span> Works</span></td>
-                </tr>
-                <tr>
-                    <td>Steam</td>
-                    <td>SDL (XWayland)</td>
-                    <td>X11 via XWayland</td>
-                    <td><span class="badge wn"><span class="bdot y"></span> Partial</span></td>
-                    <td><span class="badge wn"><span class="bdot y"></span> Partial</span></td>
-                </tr>
-                <tr>
-                    <td>CopyQ (self)</td>
-                    <td>Qt (XWayland)</td>
-                    <td>X11 Clipboard</td>
-                    <td><span class="badge ok"><span class="bdot g"></span> N/A</span></td>
-                    <td><span class="badge ok"><span class="bdot g"></span> N/A</span></td>
-                </tr>
-            </tbody>
-        </table>
+    <h2 class="s-title">Related tools for Wayland clipboard and input</h2>
+    <p class="s-desc">Complementary tools that solve adjacent problems on Wayland, from keyboard simulation to native clipboard access.</p>
+    <div class="tgrid">
+        <div class="tcard fi">
+            <div class="tcard-h">
+                <div class="tcard-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001"/><path d="M6 12h.001M10 12h.001M14 12h.001M18 12h.001"/></svg>
+                </div>
+                <h3>ydotool</h3>
+            </div>
+            <p>Keyboard simulation on Wayland via the uinput kernel interface. Replaces <code>xdotool</code> for automated typing and key injection. Works everywhere on Wayland because it talks directly to the kernel, not the compositor.</p>
+        </div>
+        <div class="tcard fi">
+            <div class="tcard-h">
+                <div class="tcard-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                </div>
+                <h3>wl-clipboard</h3>
+            </div>
+            <p>Native Wayland clipboard CLI tools: <code>wl-copy</code> and <code>wl-paste</code>. Access the Wayland clipboard directly from the terminal without any X11 bridge. Essential for scripts on Wayland systems.</p>
+        </div>
+        <div class="tcard future fi">
+            <div class="tcard-h">
+                <div class="tcard-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <h3>Future: CopyQ v17</h3>
+            </div>
+            <p>Upstream CopyQ is tracking native GNOME Wayland support via the wl-data-control protocol. The Wine project merged wl_data_device support in March 2025, which may unblock native clipboard monitoring for CopyQ on GNOME.</p>
+            <span class="future-tag">Upstream Watch</span>
+        </div>
     </div>
 </div></section>
 
+<!-- Footer -->
 <footer><div class="ft-inner">
     <div class="ft-brand">
         <a href="#" class="nav-logo" style="margin-bottom:4px;display:inline-flex">
@@ -417,13 +510,14 @@
         <ul>
             <li><a href="https://github.com/hluk/CopyQ" target="_blank" rel="noopener">CopyQ Project</a></li>
             <li><a href="https://flathub.org/apps/com.github.hluk.copyq" target="_blank" rel="noopener">Flathub Package</a></li>
-            <li><a href="https://ubuntu.com/blog" target="_blank" rel="noopener">Ubuntu Blog</a></li>
+            <li><a href="https://discourse.ubuntu.com/t/noble-numbat-release-notes/47748" target="_blank" rel="noopener">Ubuntu 26.04 Release Notes</a></li>
         </ul>
     </div>
 </div>
 <div class="ft-bot">Open source under the MIT License. Not affiliated with the CopyQ project or Canonical.</div>
 </footer>
 
+<!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
@@ -442,23 +536,12 @@
     window.copyCode = function(btn, text) {
         navigator.clipboard.writeText(text).then(function() {
             btn.classList.add('ok');
-            var svg = btn.querySelector('svg');
-            if (svg) svg.style.display = 'none';
-            var span = btn.querySelector('span');
-            if (span) span.textContent = 'Copied';
-            else btn.insertAdjacentHTML('beforeend', ' Copied');
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied';
             showToast('Copied to clipboard');
             setTimeout(function() {
                 btn.classList.remove('ok');
-                if (svg) svg.style.display = '';
-                var s = btn.querySelector('span');
-                if (s && s.textContent === 'Copied') s.remove();
-                var txts = btn.childNodes;
-                for (var i = txts.length - 1; i >= 0; i--) {
-                    if (txts[i].nodeType === 3 && txts[i].textContent.trim() === 'Copied') {
-                        txts[i].textContent = '';
-                    }
-                }
+                btn.innerHTML = orig;
             }, 2000);
         });
     };
