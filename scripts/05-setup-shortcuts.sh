@@ -23,11 +23,11 @@ register_shortcut() {
 }
 
 info "Registering GNOME custom shortcuts..."
-register_shortcut 0 "CopyQ Toggle" "${COPYQ_CMD} --toggle" "<Ctrl><Alt>v"
-register_shortcut 1 "CopyQ Menu" "${COPYQ_CMD} menu" "<Ctrl><Alt><Shift>v"
+register_shortcut 0 "CopyQ Toggle" "${COPYQ_CMD} --toggle" "<Super>v"
+register_shortcut 1 "CopyQ Menu" "${COPYQ_CMD} menu" "<Super><Shift>v"
 
 gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \
     "['${CUSTOM_PATH}/custom0/', '${CUSTOM_PATH}/custom1/']"
 pass "Keybinding list updated"
-info "Shortcuts: Ctrl+Alt+V (toggle), Ctrl+Alt+Shift+V (menu)"
+info "Shortcuts: Super+V (toggle), Super+Shift+V (menu)"
 echo ""

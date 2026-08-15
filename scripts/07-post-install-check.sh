@@ -64,5 +64,5 @@ AUTOSTART="${HOME}/.config/autostart/com.github.hluk.copyq.desktop"
 pgrep -x Xwayland &>/dev/null && pass "XWayland running" || warn "XWayland not detected (may start on demand)"
 
 echo -e "\n${BOLD}  ${GREEN}Pass: ${pass_count}${NC} | ${YELLOW}Warn: ${warn_count}${NC} | ${RED}Fail: ${fail_count}${NC}"
-[[ ${fail_count} -eq 0 ]] && echo -e "${GREEN}${BOLD}All critical checks passed! Press Ctrl+Alt+V to toggle CopyQ.${NC}" || echo -e "${YELLOW}Some checks failed — review above.${NC}"
+[[ ${fail_count} -eq 0 ]] && echo -e "${GREEN}${BOLD}All critical checks passed! Press Super+V to toggle CopyQ.${NC}" || echo -e "${YELLOW}Some checks failed — review above.${NC}"
 echo ""

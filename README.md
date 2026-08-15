@@ -36,7 +36,7 @@ Ubuntu 26.04 LTS (GNOME 50 / Wayland-only / No Xorg)
     |       +-- CopyQ 16.0.0 (Flatpak, forced via XWayland)
     |           Monitors X11 clipboard bridge
     |           Clipboard portal permission granted
-    |           GNOME shortcuts registered (Ctrl+Alt+V)
+    |           GNOME shortcuts registered (Super+V)
     |           Autostart at login with 3s delay
 ```
 
@@ -62,7 +62,7 @@ git clone https://github.com/marktantongco/copyq-linux-fix.git
 cd copyq-linux-fix
 chmod +x install.sh scripts/*.sh
 ./install.sh
-# Log out and back in, then press Ctrl+Alt+V to toggle CopyQ
+# Log out and back in, then press Super+V to toggle CopyQ
 ```
 
 ### Option B: Rootless Installer (No Sudo, No Flatpak)
@@ -87,7 +87,7 @@ systemctl --user enable --now copyq
 | 2 | `scripts/02-install-copyq.sh` | Install CopyQ 16.0.0 from Flathub |
 | 3 | `scripts/03-patch-environment.sh` | Apply `~/.config/environment.d/wayland.conf` |
 | 4 | `scripts/04-configure-flatpak.sh` | Set Flatpak overrides (XWayland env, clipboard portal) |
-| 5 | `scripts/05-setup-shortcuts.sh` | Register GNOME shortcuts: Ctrl+Alt+V, Ctrl+Alt+Shift+V |
+| 5 | `scripts/05-setup-shortcuts.sh` | Register GNOME shortcuts: Super+V, Super+Shift+V |
 | 6 | `scripts/06-enable-autostart.sh` | Create `~/.config/autostart/` entry with 3s delay |
 | 7 | `scripts/07-post-install-check.sh` | Color-coded pass/fail verification report |
 
@@ -216,7 +216,7 @@ See [`docs/COMPATIBILITY-MATRIX.md`](docs/COMPATIBILITY-MATRIX.md) for the full 
 | Problem | Solution |
 |---|---|
 | CopyQ doesn't capture from native Wayland apps | Expected — GNOME doesn't bridge all events. Use the XWayland bridge. |
-| Global hotkeys not working | This package registers GNOME custom shortcuts (Ctrl+Alt+V). Check Settings > Keyboard. |
+| Global hotkeys not working | This package registers GNOME custom shortcuts (Super+V). Check Settings > Keyboard. |
 | CopyQ window blank/transparent | `flatpak override --user com.github.hluk.copyq --env=GDK_BACKEND=x11` |
 | CopyQ not starting at login | Check `~/.config/autostart/`, re-enable if GNOME disabled it |
 | XWayland not running | `ps aux | grep Xwayland` — should start on demand |
@@ -228,7 +228,7 @@ See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) for the full guide.
 
 ## Verify Hotkeys
 
-This package registers two GNOME custom shortcuts: **Ctrl+Alt+V** (CopyQ Toggle) and **Ctrl+Alt+Shift+V** (CopyQ Menu). Here's how to verify they're registered and actually fire — including headless/scripted checks.
+This package registers two GNOME custom shortcuts: **Super+V** (CopyQ Toggle) and **Super+Shift+V** (CopyQ Menu). Super-key combos are passed through by remote-desktop clients and are unbound in GNOME by default, so they avoid the Ctrl+Alt combos that clients reserve. Here's how to verify they're registered and actually fire — including headless/scripted checks.
 
 ### 1. Verify the shortcuts are registered
 
@@ -239,10 +239,10 @@ gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings
 #    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
 
 gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding
-# → '<Ctrl><Alt>v'
+# → '<Super>v'
 
 gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/ binding
-# → '<Ctrl><Alt><Shift>v'
+# → '<Super><Shift>v'
 ```
 
 ### 2. Verify the command side (no key needed)
@@ -263,8 +263,8 @@ xwininfo -root -tree | grep -i copyq
 **X11 session** — `xdotool` works because XTEST reaches the compositor's X11 path:
 
 ```bash
-xdotool key ctrl+alt+v              # toggle
-xdotool key ctrl+alt+shift+v        # menu
+xdotool key Super_L+v              # toggle
+xdotool key Super_L+Shift_L+v       # menu
 ```
 
 **Wayland session** — plain `xdotool` will *not* trigger compositor grabs (mutter intercepts
@@ -273,13 +273,13 @@ accelerators before XWayland sees them). Use one of:
 ```bash
 # wtype — virtual-keyboard protocol (only if the compositor advertises it;
 # GNOME mutter frequently does NOT, e.g. in headless/VM sessions)
-wtype -M ctrl -M alt v -m alt -m ctrl                    # toggle
-wtype -M ctrl -M alt -M shift v -m shift -m alt -m ctrl  # menu
+wtype -M super v -m super                                # toggle
+wtype -M super -M shift v -m shift -m super              # menu
 
 # ydotool — injects via /dev/uinput (needs root, or membership in the 'input' group)
-# Keycodes: Ctrl=29, Alt=56, Shift=42, V=47
-ydotool key 29:1 56:1 47:1 47:0 56:0 29:0                 # toggle
-ydotool key 29:1 56:1 42:1 47:1 47:0 42:0 56:0 29:0       # menu
+# Keycodes: Super=125, Shift=42, V=47
+ydotool key 125:1 47:1 47:0 125:0                         # toggle
+ydotool key 125:1 42:1 47:1 47:0 42:0 125:0               # menu
 ```
 
 > **Reality check:** on GNOME Wayland there is no reliable user-level way to synthesize a key
