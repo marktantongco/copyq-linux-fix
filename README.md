@@ -228,7 +228,12 @@ See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) for the full guide.
 
 ## Verify Hotkeys
 
-This package registers two GNOME custom shortcuts: **Super+V** (CopyQ Toggle) and **Super+Shift+V** (CopyQ Menu). Super-key combos are passed through by remote-desktop clients and are unbound in GNOME by default, so they avoid the Ctrl+Alt combos that clients reserve. Here's how to verify they're registered and actually fire — including headless/scripted checks.
+This package registers two GNOME custom shortcuts: **Super+V** (CopyQ Toggle) and **Super+Shift+V** (CopyQ Menu). Super-key combos are passed through by remote-desktop clients, so they avoid the Ctrl+Alt combos that clients reserve. Here's how to verify they're registered and actually fire — including headless/scripted checks.
+
+> **Gotcha:** GNOME Shell claims `Super+V` for `toggle-message-tray` by default,
+> which makes the CopyQ grab silently fail (check `journalctl` for
+> `Failed to grab accelerator ... custom0`). The installer frees it by setting
+> `toggle-message-tray` to `['<Super>m']` — `Super+M` still opens the tray.
 
 ### 1. Verify the shortcuts are registered
 

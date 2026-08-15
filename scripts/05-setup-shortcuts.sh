@@ -23,6 +23,15 @@ register_shortcut() {
 }
 
 info "Registering GNOME custom shortcuts..."
+
+# Super+V is claimed by GNOME Shell's toggle-message-tray by default, which
+# makes the CopyQ grab silently fail. Free it first (Super+M remains as the
+# message-tray shortcut).
+if gsettings get org.gnome.shell.keybindings toggle-message-tray 2>/dev/null | grep -q "<Super>v"; then
+    gsettings set org.gnome.shell.keybindings toggle-message-tray "['<Super>m']"
+    info "Freed Super+V from message tray (kept Super+M)"
+fi
+
 register_shortcut 0 "CopyQ Toggle" "${COPYQ_CMD} --toggle" "<Super>v"
 register_shortcut 1 "CopyQ Menu" "${COPYQ_CMD} menu" "<Super><Shift>v"
 
