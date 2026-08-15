@@ -226,6 +226,70 @@ See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) for the full guide.
 
 ---
 
+## Verify Hotkeys
+
+This package registers two GNOME custom shortcuts: **Ctrl+Alt+V** (CopyQ Toggle) and **Ctrl+Alt+Shift+V** (CopyQ Menu). Here's how to verify they're registered and actually fire — including headless/scripted checks.
+
+### 1. Verify the shortcuts are registered
+
+```bash
+# The custom-keybindings list should contain custom0 and custom1
+gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings
+# → ['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/',
+#    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+
+gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding
+# → '<Ctrl><Alt>v'
+
+gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/ binding
+# → '<Ctrl><Alt><Shift>v'
+```
+
+### 2. Verify the command side (no key needed)
+
+Run exactly what the hotkey executes and watch for an observable effect:
+
+```bash
+# Option A (Flatpak)
+flatpak run com.github.hluk.copyq --toggle   # main window should appear/hide
+# Option B (rootless)
+copyq toggle                                 # returns true
+# The main window's X map state should flip between IsViewable/IsUnMapped:
+xwininfo -root -tree | grep -i copyq
+```
+
+### 3. Simulate the key press
+
+**X11 session** — `xdotool` works because XTEST reaches the compositor's X11 path:
+
+```bash
+xdotool key ctrl+alt+v              # toggle
+xdotool key ctrl+alt+shift+v        # menu
+```
+
+**Wayland session** — plain `xdotool` will *not* trigger compositor grabs (mutter intercepts
+accelerators before XWayland sees them). Use one of:
+
+```bash
+# wtype — virtual-keyboard protocol (only if the compositor advertises it;
+# GNOME mutter frequently does NOT, e.g. in headless/VM sessions)
+wtype -M ctrl -M alt v -m alt -m ctrl                    # toggle
+wtype -M ctrl -M alt -M shift v -m shift -m alt -m ctrl  # menu
+
+# ydotool — injects via /dev/uinput (needs root, or membership in the 'input' group)
+# Keycodes: Ctrl=29, Alt=56, Shift=42, V=47
+ydotool key 29:1 56:1 47:1 47:0 56:0 29:0                 # toggle
+ydotool key 29:1 56:1 42:1 47:1 47:0 42:0 56:0 29:0       # menu
+```
+
+> **Reality check:** on GNOME Wayland there is no reliable user-level way to synthesize a key
+> that hits compositor-level grabs. `wtype` requires the virtual-keyboard protocol (missing on
+> many mutter builds), and `ydotool` requires root. If neither works on your session, the
+> authoritative test is simply pressing the keys yourself — everything upstream of the keypress
+> (dconf registration, `gsd-media-keys`, the CopyQ command) is verifiable with the commands above.
+
+---
+
 ## Rootless Installer (Option B) — How It Works
 
 The `install-copyq.sh` script downloads CopyQ's `.deb` packages and extracts them into your home directory without touching `/usr` or `/var`:
