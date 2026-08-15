@@ -29,6 +29,7 @@ else
     cat > "${OVERRIDE_TARGET}" << 'EOF'
 [Context]
 filesystems=xdg-config/gtk-3.0:ro;xdg-config/gtk-4.0:ro
+sockets=wayland;x11
 
 [Environment]
 QT_QPA_PLATFORM=xcb
