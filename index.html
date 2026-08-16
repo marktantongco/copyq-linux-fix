@@ -50,27 +50,19 @@
   --tracking-tight:-0.035em;
   --tracking-normal:-0.01em;
   /* Spacing */
-  --space-1:0.25rem;
-  --space-2:0.5rem;
-  --space-3:0.75rem;
-  --space-4:1rem;
-  --space-5:1.25rem;
-  --space-6:1.5rem;
-  --space-8:2rem;
-  --space-10:2.5rem;
-  --space-12:3rem;
-  --space-16:4rem;
-  --space-20:5rem;
-  --space-24:6rem;
+  --space-1:0.25rem;--space-2:0.5rem;--space-3:0.75rem;--space-4:1rem;
+  --space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;
+  --space-12:3rem;--space-16:4rem;--space-20:5rem;--space-24:6rem;
   /* Radius */
-  --radius-sm:6px;
-  --radius-md:10px;
-  --radius-lg:14px;
-  --radius-xl:20px;
-  /* Easing */
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;--radius-xl:20px;
+  /* Easing — Emil Kowalski physics-based spring vocabulary */
   --ease-out:cubic-bezier(0.16,1,0.3,1);
   --ease-in-out:cubic-bezier(0.65,0,0.35,1);
-  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+  --spring-gentle:cubic-bezier(0.33,1,0.68,1);
+  --spring-bouncy:cubic-bezier(0.34,1.56,0.64,1);
+  --spring-snappy:cubic-bezier(0.22,1.2,0.36,1);
+  --spring-smooth:cubic-bezier(0.25,0.1,0.25,1);
+  --spring-stiff:cubic-bezier(0.18,0.89,0.32,1.28);
   /* Layout */
   --nav-h:60px;
   --max-w:72rem;
@@ -91,23 +83,14 @@ body{
   overflow-x:hidden;
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--accent)}
-
-/* Selection */
 ::selection{background:var(--accent-soft);color:var(--accent)}
-
-/* Focus */
 *:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
-
-/* Links */
-a{color:var(--accent);text-decoration:none;transition:color 200ms var(--ease-out)}
+a{color:var(--accent);text-decoration:none;transition:color 200ms var(--spring-gentle)}
 a:hover{color:var(--accent-hover)}
-
-/* Code */
 code,pre{font-family:var(--font-mono)}
 img{display:block;max-width:100%}
 
@@ -121,48 +104,216 @@ img{display:block;max-width:100%}
 
 /* ===== BACKGROUND GLOW ===== */
 .bg-glow{
-  position:fixed;
-  top:-40%;left:-20%;
+  position:fixed;top:-40%;left:-20%;
   width:60%;height:80%;
   background:radial-gradient(ellipse,rgba(52,211,153,0.04) 0%,transparent 70%);
-  pointer-events:none;
-  z-index:0;
+  pointer-events:none;z-index:0;
 }
 .bg-glow-2{
-  position:fixed;
-  bottom:-30%;right:-20%;
+  position:fixed;bottom:-30%;right:-20%;
   width:50%;height:70%;
   background:radial-gradient(ellipse,rgba(52,211,153,0.03) 0%,transparent 70%);
-  pointer-events:none;
-  z-index:0;
+  pointer-events:none;z-index:0;
 }
 
-/* ===== REVEAL ANIMATION ===== */
+/* ===== EMIL KOWALSKI MOTION SYSTEM ===== */
+
+/* Spring-based reveal with direction variants */
 .reveal{
   opacity:0;
-  transform:translateY(24px);
-  transition:opacity 600ms var(--ease-out),transform 600ms var(--ease-out);
+  will-change:transform,opacity;
 }
-.reveal.visible{opacity:1;transform:translateY(0)}
-.reveal-delay-1{transition-delay:80ms}
-.reveal-delay-2{transition-delay:160ms}
-.reveal-delay-3{transition-delay:240ms}
+.reveal[data-motion="fade-up"]{transform:translateY(32px)}
+.reveal[data-motion="fade-down"]{transform:translateY(-32px)}
+.reveal[data-motion="fade-left"]{transform:translateX(-32px)}
+.reveal[data-motion="fade-right"]{transform:translateX(32px)}
+.reveal[data-motion="scale-in"]{transform:scale(0.92)}
+.reveal[data-motion="blur-in"]{filter:blur(6px);transform:translateY(16px)}
+.reveal[data-motion="slide-up"]{transform:translateY(60px);opacity:0}
+
+.reveal.visible{
+  opacity:1;
+  transform:translate(0,0) scale(1);
+  filter:blur(0);
+}
+
+/* Duration classes — Emil's timing vocabulary */
+.reveal[data-duration="fast"]{transition-duration:400ms}
+.reveal[data-duration="normal"]{transition-duration:650ms}
+.reveal[data-duration="slow"]{transition-duration:900ms}
+.reveal:not([data-duration]){transition-duration:650ms}
+
+/* Easing classes */
+.reveal[data-ease="gentle"]{transition-timing-function:var(--spring-gentle)}
+.reveal[data-ease="bouncy"]{transition-timing-function:var(--spring-bouncy)}
+.reveal[data-ease="snappy"]{transition-timing-function:var(--spring-snappy)}
+.reveal[data-ease="smooth"]{transition-timing-function:var(--spring-smooth)}
+.reveal:not([data-ease]){transition-timing-function:var(--spring-gentle)}
+
+/* Orchestrated stagger via data-stagger (ms) */
+.reveal[data-stagger]{transition-delay:calc(var(--stagger-offset, 0ms) + var(--stagger, 0ms))}
+
+/* Legacy delay classes still work */
+.reveal-delay-1{--stagger:60ms}
+.reveal-delay-2{--stagger:120ms}
+.reveal-delay-3{--stagger:200ms}
+
+/* Magnetic hover wrapper — JS sets --mx, --my */
+.magnetic{
+  transition:transform 300ms var(--spring-snappy);
+}
+.magnetic:hover{
+  transform:translate(var(--mx,0),var(--my,0));
+}
+
+/* whileHover — lift + glow (Emil gesture state) */
+.hover-lift{
+  transition:transform 350ms var(--spring-bouncy),
+             box-shadow 350ms var(--spring-gentle),
+             border-color 350ms var(--spring-gentle);
+}
+.hover-lift:hover{
+  transform:translateY(-4px);
+  box-shadow:0 12px 40px rgba(0,0,0,0.3),0 0 0 1px var(--border-2);
+}
+
+/* whileTap — compress (Emil gesture state) */
+.tap-scale{
+  transition:transform 150ms var(--spring-snappy);
+}
+.tap-scale:active{
+  transform:scale(0.96);
+}
+
+/* Parallax layer — JS sets --parallax-y */
+.parallax{
+  will-change:transform;
+  transition:transform 80ms linear;
+}
+
+/* Architecture flow arrow animation */
+.arch-arrow svg{
+  stroke-dasharray:40;
+  stroke-dashoffset:40;
+  transition:stroke-dashoffset 800ms var(--spring-gentle);
+}
+.reveal.visible .arch-arrow svg{
+  stroke-dashoffset:0;
+}
+
+/* Stagger children — container-level orchestration */
+.stagger-children > *{
+  opacity:0;
+  transform:translateY(20px);
+  transition:opacity 500ms var(--spring-gentle),
+             transform 500ms var(--spring-gentle);
+}
+.stagger-children.visible > *:nth-child(1){transition-delay:0ms;opacity:1;transform:translateY(0)}
+.stagger-children.visible > *:nth-child(2){transition-delay:60ms;opacity:1;transform:translateY(0)}
+.stagger-children.visible > *:nth-child(3){transition-delay:120ms;opacity:1;transform:translateY(0)}
+.stagger-children.visible > *:nth-child(4){transition-delay:180ms;opacity:1;transform:translateY(0)}
+.stagger-children.visible > *:nth-child(5){transition-delay:240ms;opacity:1;transform:translateY(0)}
+.stagger-children.visible > *:nth-child(6){transition-delay:300ms;opacity:1;transform:translateY(0)}
+
+/* Mobile menu stagger entrance */
+.mobile-menu.open a{
+  opacity:0;transform:translateX(-20px);
+  animation:menuSlideIn 400ms var(--spring-snappy) forwards;
+}
+.mobile-menu.open a:nth-child(1){animation-delay:0ms}
+.mobile-menu.open a:nth-child(2){animation-delay:50ms}
+.mobile-menu.open a:nth-child(3){animation-delay:100ms}
+.mobile-menu.open a:nth-child(4){animation-delay:150ms}
+.mobile-menu.open a:nth-child(5){animation-delay:200ms}
+.mobile-menu.open a:nth-child(6){animation-delay:250ms}
+@keyframes menuSlideIn{
+  to{opacity:1;transform:translateX(0)}
+}
+
+/* Hero badge pulse — Emil's "breathing" pattern */
+.hero-badge-dot{
+  animation:pulse 2.4s var(--spring-smooth) infinite;
+}
+@keyframes pulse{
+  0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 var(--accent-glow)}
+  50%{opacity:0.6;transform:scale(1.3);box-shadow:0 0 0 8px transparent}
+}
+
+/* Glow border shimmer */
+.glow-border::before{
+  background:linear-gradient(135deg,var(--accent),transparent 40%,transparent 60%,rgba(52,211,153,0.5));
+ background-size:200% 200%;
+ animation:glowShift 6s var(--spring-smooth) infinite;
+}
+@keyframes glowShift{
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+
+/* Button ripple effect — Emil tap feedback */
+.btn-ripple{
+  position:absolute;border-radius:50%;
+  background:rgba(255,255,255,0.15);
+  transform:scale(0);
+ animation:rippleOut 500ms var(--spring-gentle) forwards;
+  pointer-events:none;
+}
+@keyframes rippleOut{
+  to{transform:scale(2.5);opacity:0}
+}
+
+/* Stat counter glow on complete */
+.hero-stat-value.counted{
+  text-shadow:0 0 20px var(--accent-glow);
+  transition:text-shadow 600ms var(--spring-gentle);
+}
+
+/* Architecture node entrance — staggered spring pop */
+.arch-flow .arch-node{
+  opacity:0;transform:scale(0.85) translateY(16px);
+  transition:opacity 600ms var(--spring-bouncy),
+             transform 600ms var(--spring-bouncy),
+             border-color 300ms var(--spring-gentle),
+             box-shadow 300ms var(--spring-gentle);
+}
+.arch-flow.visible .arch-node{opacity:1;transform:scale(1) translateY(0)}
+.arch-flow.visible .arch-node:nth-child(1){transition-delay:0ms}
+.arch-flow.visible .arch-node:nth-child(3){transition-delay:150ms}
+.arch-flow.visible .arch-node:nth-child(5){transition-delay:300ms}
+.arch-flow.visible .arch-node:nth-child(7){transition-delay:450ms}
+
+/* Arrow entrance */
+.arch-flow .arch-arrow{
+  opacity:0;
+  transition:opacity 400ms var(--spring-gentle);
+}
+.arch-flow.visible .arch-arrow{opacity:1}
+.arch-flow.visible .arch-arrow:nth-child(2){transition-delay:80ms}
+.arch-flow.visible .arch-arrow:nth-child(4){transition-delay:230ms}
+.arch-flow.visible .arch-arrow:nth-child(6){transition-delay:380ms}
 
 @media(prefers-reduced-motion:reduce){
-  .reveal{opacity:1;transform:none;transition:none}
-  .reveal-delay-1,.reveal-delay-2,.reveal-delay-3{transition-delay:0}
-  .hero-cmd-card,.arch-node,.glow-border{animation:none!important}
+  .reveal{opacity:1;transform:none;filter:none;transition:none}
+  .reveal-delay-1,.reveal-delay-2,.reveal-delay-3{--stagger:0}
+  .magnetic:hover{transform:none}
+  .hover-lift:hover{transform:none;box-shadow:none}
+  .tap-scale:active{transform:none}
+  .parallax{transform:none!important}
+  .stagger-children > *{opacity:1;transform:none;transition:none}
+  .mobile-menu.open a{opacity:1;transform:none;animation:none}
+  .hero-badge-dot{animation:none}
+  .glow-border::before{animation:none}
+  .btn-ripple{animation:none}
+  .arch-flow .arch-node{opacity:1;transform:none;transition:border-color,box-shadow}
+  .arch-flow .arch-arrow{opacity:1}
 }
 
 /* ===== SECTION UTILITY ===== */
 .section{width:100%;max-width:var(--max-w);margin:0 auto;padding:0 var(--space-6)}
 .section-label{
   display:inline-flex;align-items:center;gap:var(--space-2);
-  font-family:var(--font-mono);font-size:var(--text-xs);
-  font-weight:500;
-  color:var(--accent);
-  text-transform:uppercase;
-  letter-spacing:0.08em;
+  font-family:var(--font-mono);font-size:var(--text-xs);font-weight:500;
+  color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;
   margin-bottom:var(--space-4);
 }
 .section-label::before{
@@ -171,37 +322,33 @@ img{display:block;max-width:100%}
   box-shadow:0 0 8px var(--accent-glow);
 }
 .section-title{
-  font-weight:700;
-  font-size:var(--text-2xl);
-  letter-spacing:var(--tracking-tight);
-  line-height:var(--leading-tight);
+  font-weight:700;font-size:var(--text-2xl);
+  letter-spacing:var(--tracking-tight);line-height:var(--leading-tight);
   color:var(--text-0);
 }
 .section-desc{
-  color:var(--text-1);
-  font-size:var(--text-base);
-  line-height:var(--leading-normal);
-  margin-top:var(--space-4);
+  color:var(--text-1);font-size:var(--text-base);
+  line-height:var(--leading-normal);margin-top:var(--space-4);
   max-width:40rem;
 }
 
 /* ===== NAV ===== */
 .nav{
-  position:fixed;
-  top:0;left:0;right:0;
-  z-index:100;
-  height:var(--nav-h);
-  display:flex;align-items:center;
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:var(--nav-h);display:flex;align-items:center;
   padding:0 var(--space-6);
   background:rgba(6,6,10,0.7);
   backdrop-filter:blur(16px) saturate(180%);
   -webkit-backdrop-filter:blur(16px) saturate(180%);
   border-bottom:1px solid var(--border-0);
-  transition:background 300ms var(--ease-out),border-color 300ms var(--ease-out);
+  transition:background 300ms var(--spring-gentle),
+             border-color 300ms var(--spring-gentle),
+             box-shadow 300ms var(--spring-gentle);
 }
 .nav.scrolled{
   background:rgba(6,6,10,0.88);
   border-bottom-color:var(--border-1);
+  box-shadow:0 4px 30px rgba(0,0,0,0.2);
 }
 .nav-inner{
   display:flex;align-items:center;justify-content:space-between;
@@ -217,17 +364,19 @@ img{display:block;max-width:100%}
   background:var(--accent);
   display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:0.625rem;color:var(--bg-0);
+  transition:transform 300ms var(--spring-bouncy);
 }
+.nav-logo:hover .nav-logo-icon{transform:rotate(-8deg) scale(1.1)}
 .nav-links{display:flex;align-items:center;gap:var(--space-8);list-style:none}
 .nav-links a{
   color:var(--text-2);font-size:var(--text-sm);font-weight:500;
   position:relative;padding:2px 0;
-  transition:color 200ms var(--ease-out);
+  transition:color 200ms var(--spring-gentle);
 }
 .nav-links a::after{
   content:'';position:absolute;bottom:-4px;left:50%;width:0;height:1.5px;
   background:var(--accent);border-radius:1px;
-  transition:width 240ms var(--ease-out),left 240ms var(--ease-out);
+  transition:width 300ms var(--spring-snappy),left 300ms var(--spring-snappy);
 }
 .nav-links a:hover{color:var(--text-0)}
 .nav-links a:hover::after{width:100%;left:0}
@@ -238,21 +387,19 @@ img{display:block;max-width:100%}
   border-radius:var(--radius-md);
   color:var(--text-1);font-size:var(--text-xs);font-weight:500;
   background:transparent;cursor:pointer;
-  transition:all 200ms var(--ease-out);
+  transition:all 250ms var(--spring-snappy);
 }
-.nav-gh:hover{border-color:var(--accent);color:var(--text-0);background:var(--accent-soft)}
-.nav-gh:active{transform:scale(0.97)}
+.nav-gh:hover{border-color:var(--accent);color:var(--text-0);background:var(--accent-soft);transform:translateY(-1px)}
+.nav-gh:active{transform:scale(0.96)}
 .nav-gh svg{width:14px;height:14px}
 
-/* Hamburger */
 .nav-hamburger{display:none;background:none;border:none;cursor:pointer;padding:var(--space-1);color:var(--text-1)}
 .nav-hamburger svg{width:22px;height:22px}
 .mobile-menu{
   display:none;position:fixed;
   top:var(--nav-h);left:0;right:0;bottom:0;
   background:rgba(6,6,10,0.96);
-  backdrop-filter:blur(20px);
-  -webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   z-index:99;padding:var(--space-8) var(--space-6);
   flex-direction:column;gap:var(--space-6);
 }
@@ -261,7 +408,7 @@ img{display:block;max-width:100%}
   color:var(--text-0);font-size:var(--text-xl);font-weight:500;
   padding:var(--space-3) 0;
   border-bottom:1px solid var(--border-0);
-  transition:color 200ms var(--ease-out);
+  transition:color 200ms var(--spring-gentle);
 }
 .mobile-menu a:hover{color:var(--accent)}
 @media(max-width:768px){
@@ -275,24 +422,27 @@ img{display:block;max-width:100%}
   padding:var(--space-3) var(--space-6);
   border-radius:var(--radius-md);
   font-family:var(--font-sans);font-size:var(--text-sm);font-weight:600;
-  cursor:pointer;
-  transition:all 200ms var(--ease-out);
-  position:relative;overflow:hidden;
+  cursor:pointer;position:relative;overflow:hidden;
+  transition:transform 250ms var(--spring-snappy),
+             background 200ms var(--spring-gentle),
+             border-color 200ms var(--spring-gentle),
+             box-shadow 300ms var(--spring-gentle);
 }
-.btn:active{transform:scale(0.97)}
+.btn:active{transform:scale(0.95)!important}
 .btn-primary{
   background:var(--accent);color:var(--bg-0);border:none;
   box-shadow:0 0 0 0 var(--accent-glow);
 }
 .btn-primary:hover{
   background:var(--accent-hover);
-  box-shadow:0 0 20px 0 var(--accent-glow);
+  transform:translateY(-2px);
+  box-shadow:0 6px 24px var(--accent-glow);
 }
 .btn-ghost{
   background:transparent;color:var(--text-0);
   border:1px solid var(--border-1);
 }
-.btn-ghost:hover{border-color:var(--border-2);background:var(--bg-2)}
+.btn-ghost:hover{border-color:var(--border-2);background:var(--bg-2);transform:translateY(-1px)}
 
 /* ===== 1. HERO ===== */
 .hero{
@@ -316,32 +466,21 @@ img{display:block;max-width:100%}
 .hero-badge-dot{
   width:6px;height:6px;border-radius:50%;
   background:var(--accent);
-  animation:pulse 2s ease-in-out infinite;
-}
-@keyframes pulse{
-  0%,100%{opacity:1;box-shadow:0 0 0 0 var(--accent-glow)}
-  50%{opacity:0.7;box-shadow:0 0 0 6px transparent}
 }
 .hero h1{
-  font-weight:700;
-  font-size:var(--text-3xl);
-  letter-spacing:var(--tracking-tight);
-  line-height:var(--leading-tight);
-  color:var(--text-0);
-  max-width:44rem;
+  font-weight:700;font-size:var(--text-3xl);
+  letter-spacing:var(--tracking-tight);line-height:var(--leading-tight);
+  color:var(--text-0);max-width:44rem;
 }
 .hero h1 .accent{color:var(--accent)}
 .hero-sub{
-  color:var(--text-1);
-  font-size:var(--text-lg);
-  margin-top:var(--space-6);
-  max-width:38rem;
+  color:var(--text-1);font-size:var(--text-lg);
+  margin-top:var(--space-6);max-width:38rem;
   line-height:var(--leading-normal);
 }
 .hero-ctas{
   display:flex;gap:var(--space-3);
-  margin-top:var(--space-10);
-  flex-wrap:wrap;
+  margin-top:var(--space-10);flex-wrap:wrap;
 }
 .hero-cmd-card{
   margin-top:var(--space-12);
@@ -351,23 +490,27 @@ img{display:block;max-width:100%}
   position:relative;
   width:100%;max-width:42rem;
   overflow:hidden;
+  transition:border-color 300ms var(--spring-gentle),
+             box-shadow 300ms var(--spring-gentle);
 }
-/* Glow border effect */
+.hero-cmd-card:hover{
+  box-shadow:0 8px 32px rgba(0,0,0,0.2);
+}
 .glow-border{
   position:relative;
 }
 .glow-border::before{
   content:'';
   position:absolute;inset:0;
-  border-radius:inherit;
-  padding:1px;
+  border-radius:inherit;padding:1px;
   background:linear-gradient(135deg,var(--accent),transparent 40%,transparent 60%,rgba(52,211,153,0.5));
+  background-size:200% 200%;
   -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
   mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
   -webkit-mask-composite:xor;
   mask-composite:exclude;
   opacity:0.6;
-  transition:opacity 300ms var(--ease-out);
+  transition:opacity 300ms var(--spring-gentle);
   pointer-events:none;
 }
 .glow-border:hover::before{opacity:1}
@@ -379,8 +522,6 @@ img{display:block;max-width:100%}
 .hero-cmd-card .cmt{color:var(--text-2)}
 .hero-cmd-card .kw{color:var(--accent)}
 .hero-cmd-card .str{color:var(--warn)}
-
-/* Hero stats */
 .hero-stats{
   display:flex;gap:var(--space-10);
   margin-top:var(--space-12);
@@ -389,46 +530,52 @@ img{display:block;max-width:100%}
 }
 .hero-stat-value{
   font-weight:700;font-size:var(--text-xl);
-  color:var(--text-0);
-  letter-spacing:var(--tracking-tight);
+  color:var(--text-0);letter-spacing:var(--tracking-tight);
+  font-variant-numeric:tabular-nums;
+  transition:text-shadow 600ms var(--spring-gentle);
 }
+.hero-stat-value.counted{text-shadow:0 0 20px var(--accent-glow)}
 .hero-stat-label{
   font-size:var(--text-xs);color:var(--text-2);
   margin-top:var(--space-1);
   text-transform:uppercase;letter-spacing:0.06em;
 }
+@media(max-width:768px){
+  .hero-stats{flex-direction:column;gap:var(--space-6)}
+}
 
 /* ===== 2. PROBLEM ===== */
 .problem{padding:var(--space-24) 0;position:relative;z-index:1}
 .problem-cards{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:var(--space-4);
-  margin-top:var(--space-10);
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:var(--space-4);margin-top:var(--space-10);
 }
-@media(max-width:768px){
-  .problem-cards{grid-template-columns:1fr}
-  .hero-stats{flex-direction:column;gap:var(--space-6)}
-}
+@media(max-width:768px){.problem-cards{grid-template-columns:1fr}}
 .problem-card{
   padding:var(--space-6);
   border:1px solid var(--border-0);
   border-radius:var(--radius-lg);
   background:var(--bg-1);
-  transition:border-color 300ms var(--ease-out),transform 300ms var(--ease-out),box-shadow 300ms var(--ease-out);
+  /* Emil whileHover gesture state */
+  transition:transform 400ms var(--spring-bouncy),
+             box-shadow 400ms var(--spring-gentle),
+             border-color 300ms var(--spring-gentle);
 }
 .problem-card:hover{
   border-color:var(--border-2);
-  transform:translateY(-2px);
-  box-shadow:0 8px 32px rgba(0,0,0,0.3);
+  transform:translateY(-6px);
+  box-shadow:0 16px 48px rgba(0,0,0,0.3),0 0 0 1px var(--border-2);
 }
+.problem-card:active{transform:translateY(-2px) scale(0.98)}
 .problem-card-icon{
   width:40px;height:40px;
   border-radius:var(--radius-sm);
   background:var(--warn-soft);
   display:flex;align-items:center;justify-content:center;
   margin-bottom:var(--space-5);
+  transition:transform 400ms var(--spring-bouncy);
 }
+.problem-card:hover .problem-card-icon{transform:scale(1.1) rotate(-4deg)}
 .problem-card-icon svg{
   width:20px;height:20px;
   stroke:var(--warn);fill:none;
@@ -436,13 +583,11 @@ img{display:block;max-width:100%}
 }
 .problem-card h3{
   font-weight:600;font-size:var(--text-base);
-  color:var(--text-0);
-  margin-bottom:var(--space-3);
+  color:var(--text-0);margin-bottom:var(--space-3);
   letter-spacing:var(--tracking-normal);
 }
 .problem-card p{
-  color:var(--text-1);
-  font-size:var(--text-sm);
+  color:var(--text-1);font-size:var(--text-sm);
   line-height:var(--leading-normal);
 }
 
@@ -451,40 +596,32 @@ img{display:block;max-width:100%}
 .arch-flow{
   display:flex;flex-direction:column;align-items:center;
   gap:0;margin-top:var(--space-10);
+ /* Container for staggered children */
 }
 .arch-node{
   padding:var(--space-4) var(--space-8);
   border:1px solid var(--border-1);
   border-radius:var(--radius-lg);
   background:var(--bg-1);
-  text-align:center;
-  min-width:18rem;
-  transition:border-color 300ms var(--ease-out),box-shadow 300ms var(--ease-out);
+  text-align:center;min-width:18rem;
   position:relative;
-}
-.arch-node:hover{
-  border-color:var(--accent);
-  box-shadow:0 0 24px var(--accent-glow);
+  /* spring entrance handled by .arch-flow.visible rules above */
 }
 .arch-node.active{
   border-color:var(--accent);
-  box-shadow:0 0 16px var(--accent-glow);
+  box-shadow:0 0 24px var(--accent-glow);
 }
 .arch-node.active .node-label{color:var(--accent)}
 .node-label{
-  font-weight:600;font-size:var(--text-sm);
-  color:var(--text-0);
+  font-weight:600;font-size:var(--text-sm);color:var(--text-0);
 }
 .node-proto{
-  font-family:var(--font-mono);
-  font-size:var(--text-xs);
-  color:var(--text-2);
-  margin-top:var(--space-1);
+  font-family:var(--font-mono);font-size:var(--text-xs);
+  color:var(--text-2);margin-top:var(--space-1);
 }
 .arch-arrow{
   display:flex;flex-direction:column;align-items:center;
-  padding:var(--space-2) 0;
-  color:var(--text-2);
+  padding:var(--space-2) 0;color:var(--text-2);
 }
 .arch-arrow svg{
   width:16px;height:16px;
@@ -492,12 +629,9 @@ img{display:block;max-width:100%}
   stroke-dasharray:3 3;
 }
 .arch-arrow .arrow-label{
-  font-family:var(--font-mono);
-  font-size:0.625rem;
-  color:var(--text-2);
-  margin-top:var(--space-1);
-  text-transform:uppercase;
-  letter-spacing:0.05em;
+  font-family:var(--font-mono);font-size:0.625rem;
+  color:var(--text-2);margin-top:var(--space-1);
+  text-transform:uppercase;letter-spacing:0.05em;
 }
 .arch-note{
   margin-top:var(--space-10);
@@ -505,8 +639,7 @@ img{display:block;max-width:100%}
   border:1px solid var(--border-0);
   border-radius:var(--radius-md);
   background:var(--bg-1);
-  font-size:var(--text-sm);
-  color:var(--text-1);
+  font-size:var(--text-sm);color:var(--text-1);
   max-width:44rem;
   margin-left:auto;margin-right:auto;
   line-height:var(--leading-normal);
@@ -516,22 +649,18 @@ img{display:block;max-width:100%}
 /* ===== 4. SOLUTION ===== */
 .solution{padding:var(--space-24) 0;position:relative;z-index:1}
 .solution-grid{
-  display:grid;
-  grid-template-columns:1.6fr 1fr;
-  gap:var(--space-10);
-  align-items:start;
+  display:grid;grid-template-columns:1.6fr 1fr;
+  gap:var(--space-10);align-items:start;
   margin-top:var(--space-10);
 }
 @media(max-width:768px){.solution-grid{grid-template-columns:1fr;gap:var(--space-8)}}
 .sol-main h3{
   font-weight:600;font-size:var(--text-lg);
-  color:var(--text-0);
-  margin-bottom:var(--space-4);
+  color:var(--text-0);margin-bottom:var(--space-4);
 }
 .sol-main p{
   color:var(--text-1);font-size:var(--text-sm);
-  line-height:var(--leading-normal);
-  margin-bottom:var(--space-6);
+  line-height:var(--leading-normal);margin-bottom:var(--space-6);
 }
 .sol-main p code{color:var(--accent);font-size:var(--text-sm)}
 .sol-code{
@@ -559,11 +688,11 @@ img{display:block;max-width:100%}
   color:var(--text-2);font-family:var(--font-sans);
   font-size:0.6875rem;font-weight:500;cursor:pointer;
   opacity:0;
-  transition:all 200ms var(--ease-out);
+  transition:all 200ms var(--spring-snappy);
 }
 .sol-code:hover .copy-btn,.sol-code:focus-within .copy-btn{opacity:1}
-.copy-btn:hover{color:var(--text-0);border-color:var(--border-2)}
-.copy-btn:active{transform:scale(0.95)}
+.copy-btn:hover{color:var(--text-0);border-color:var(--border-2);transform:translateY(-1px)}
+.copy-btn:active{transform:scale(0.92)}
 
 .sol-side{display:flex;flex-direction:column;gap:var(--space-4)}
 .sol-item{
@@ -571,16 +700,18 @@ img{display:block;max-width:100%}
   border:1px solid var(--border-0);
   border-radius:var(--radius-md);
   background:var(--bg-1);
-  transition:border-color 300ms var(--ease-out),transform 300ms var(--ease-out);
+  transition:transform 400ms var(--spring-bouncy),
+             border-color 300ms var(--spring-gentle),
+             box-shadow 300ms var(--spring-gentle);
 }
 .sol-item:hover{
   border-color:var(--border-1);
-  transform:translateY(-1px);
+  transform:translateY(-3px);
+  box-shadow:0 8px 24px rgba(0,0,0,0.2);
 }
 .sol-item h4{
   font-weight:600;font-size:var(--text-sm);
-  color:var(--text-0);
-  margin-bottom:var(--space-2);
+  color:var(--text-0);margin-bottom:var(--space-2);
 }
 .sol-item p{
   color:var(--text-1);font-size:var(--text-sm);
@@ -596,11 +727,16 @@ img{display:block;max-width:100%}
   border:1px solid rgba(251,191,36,0.12);
   border-radius:var(--radius-lg);
   padding:var(--space-6) var(--space-8);
+  transition:transform 400ms var(--spring-gentle),
+             box-shadow 400ms var(--spring-gentle);
+}
+.limitations-inner:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 32px rgba(251,191,36,0.06);
 }
 .limitations-inner h2{
   font-weight:600;font-size:var(--text-base);
-  color:var(--warn);
-  letter-spacing:var(--tracking-normal);
+  color:var(--warn);letter-spacing:var(--tracking-normal);
   margin-bottom:var(--space-4);
   display:flex;align-items:center;gap:var(--space-2);
 }
@@ -613,8 +749,7 @@ img{display:block;max-width:100%}
   line-height:var(--leading-normal);
 }
 .limitations-inner p+p{
-  margin-top:var(--space-4);
-  padding-top:var(--space-4);
+  margin-top:var(--space-4);padding-top:var(--space-4);
   border-top:1px solid rgba(251,191,36,0.10);
 }
 .limitations-inner code{color:var(--warn);font-size:var(--text-sm)}
@@ -634,13 +769,11 @@ img{display:block;max-width:100%}
 .install-method-tag{
   font-size:var(--text-xs);font-weight:600;
   padding:var(--space-1) var(--space-2);
-  border-radius:100px;
-  background:var(--accent-soft);
+  border-radius:100px;background:var(--accent-soft);
   color:var(--accent);
 }
 .install-method-tag.alt{
-  background:var(--bg-2);
-  color:var(--text-1);
+  background:var(--bg-2);color:var(--text-1);
 }
 .install-code{
   position:relative;
@@ -648,6 +781,12 @@ img{display:block;max-width:100%}
   border:1px solid var(--border-1);
   border-radius:var(--radius-md);
   padding:var(--space-5) var(--space-6);
+  transition:border-color 300ms var(--spring-gentle),
+             box-shadow 300ms var(--spring-gentle);
+}
+.install-code:hover{
+  border-color:var(--border-2);
+  box-shadow:0 4px 16px rgba(0,0,0,0.15);
 }
 .install-code code{
   display:block;font-size:var(--text-sm);
@@ -665,48 +804,46 @@ img{display:block;max-width:100%}
   border-radius:var(--radius-md);
 }
 .install-note code{
-  font-family:var(--font-mono);
-  font-size:var(--text-xs);
+  font-family:var(--font-mono);font-size:var(--text-xs);
   color:var(--text-2);
 }
 .install-link{
   display:inline-flex;align-items:center;gap:var(--space-1);
   margin-top:var(--space-4);
-  font-size:var(--text-xs);
-  color:var(--text-2);
-  transition:color 200ms var(--ease-out);
+  font-size:var(--text-xs);color:var(--text-2);
+  transition:color 200ms var(--spring-gentle),transform 200ms var(--spring-snappy);
 }
-.install-link:hover{color:var(--accent)}
+.install-link:hover{color:var(--accent);transform:translateX(2px)}
 .install-link svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.5}
 
 /* ===== 7. TOOLS ===== */
 .tools{padding:var(--space-24) 0;position:relative;z-index:1}
 .tools-list{
-  display:grid;gap:var(--space-6);
+  display:grid;gap:var(--space-4);
   max-width:44rem;margin-top:var(--space-10);
 }
 .tool-item{
-  display:grid;
-  grid-template-columns:auto 1fr;
-  gap:var(--space-4) var(--space-5);
-  align-items:start;
+  display:grid;grid-template-columns:auto 1fr;
+  gap:var(--space-4) var(--space-5);align-items:start;
   padding:var(--space-5);
   border:1px solid var(--border-0);
   border-radius:var(--radius-md);
   background:var(--bg-1);
-  transition:border-color 300ms var(--ease-out);
+  transition:transform 400ms var(--spring-bouncy),
+             border-color 300ms var(--spring-gentle),
+             box-shadow 300ms var(--spring-gentle);
 }
-.tool-item:hover{border-color:var(--border-1)}
+.tool-item:hover{
+  border-color:var(--border-1);
+  transform:translateX(4px);
+  box-shadow:0 4px 20px rgba(0,0,0,0.15);
+}
 .tool-item dt{
-  font-weight:600;font-size:var(--text-sm);
-  color:var(--text-0);
-  grid-column:1/2;
-  font-family:var(--font-mono);
-  padding-top:1px;
+  font-weight:600;font-size:var(--text-sm);color:var(--text-0);
+  grid-column:1/2;font-family:var(--font-mono);padding-top:1px;
 }
 .tool-item dd{
-  grid-column:2/3;
-  color:var(--text-1);font-size:var(--text-sm);
+  grid-column:2/3;color:var(--text-1);font-size:var(--text-sm);
   line-height:var(--leading-normal);
 }
 .tool-item dd code{color:var(--accent);font-size:var(--text-xs)}
@@ -714,8 +851,7 @@ img{display:block;max-width:100%}
 /* ===== 8. FOOTER ===== */
 .footer{
   border-top:1px solid var(--border-0);
-  padding:var(--space-8) 0;
-  position:relative;z-index:1;
+  padding:var(--space-8) 0;position:relative;z-index:1;
 }
 .footer-inner{
   max-width:var(--max-w);margin:0 auto;
@@ -724,17 +860,14 @@ img{display:block;max-width:100%}
   justify-content:space-between;gap:var(--space-4);
 }
 .footer-links{
-  display:flex;flex-wrap:wrap;gap:var(--space-6);
-  list-style:none;
+  display:flex;flex-wrap:wrap;gap:var(--space-6);list-style:none;
 }
 .footer-links a{
   color:var(--text-2);font-size:var(--text-xs);font-weight:500;
-  transition:color 200ms var(--ease-out);
+  transition:color 200ms var(--spring-gentle),transform 200ms var(--spring-snappy);
 }
-.footer-links a:hover{color:var(--text-0)}
-.footer-license{
-  color:var(--text-2);font-size:var(--text-xs);
-}
+.footer-links a:hover{color:var(--text-0);transform:translateY(-1px)}
+.footer-license{color:var(--text-2);font-size:var(--text-xs)}
 
 /* ===== TOAST ===== */
 .toast{
@@ -745,8 +878,8 @@ img{display:block;max-width:100%}
   padding:var(--space-3) var(--space-5);
   color:var(--text-0);font-size:var(--text-sm);font-weight:500;
   z-index:200;
-  opacity:0;transform:translateY(8px) scale(0.96);
-  transition:all 250ms var(--ease-spring);
+  opacity:0;transform:translateY(8px) scale(0.92);
+  transition:all 350ms var(--spring-bouncy);
   pointer-events:none;
   backdrop-filter:blur(12px);
 }
@@ -757,32 +890,22 @@ img{display:block;max-width:100%}
 .toast-icon{
   display:inline-block;width:6px;height:6px;
   border-radius:50%;background:var(--accent);
-  margin-right:var(--space-2);
-  vertical-align:middle;
+  margin-right:var(--space-2);vertical-align:middle;
 }
 
 /* ===== DIVIDER ===== */
 .section-divider{
   width:100%;max-width:var(--max-w);margin:0 auto;
-  padding:0 var(--space-6);
-  position:relative;z-index:1;
+  padding:0 var(--space-6);position:relative;z-index:1;
 }
-.section-divider hr{
-  border:none;height:1px;
-  background:var(--border-0);
-}
+.section-divider hr{border:none;height:1px;background:var(--border-0)}
 </style>
 </head>
 <body>
 
-<!-- BACKGROUND GLOW -->
 <div class="bg-glow"></div>
 <div class="bg-glow-2"></div>
-
-<!-- SCROLL PROGRESS -->
 <div class="scroll-progress" id="scrollProgress"></div>
-
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <!-- NAV -->
@@ -799,7 +922,7 @@ img{display:block;max-width:100%}
       <li><a href="#install">Install</a></li>
       <li><a href="#tools">Tools</a></li>
     </ul>
-    <a href="https://github.com/marktantongco/copyq-linux-fix" class="nav-gh" target="blank" rel="noopener">
+    <a href="https://github.com/marktantongco/copyq-linux-fix" class="nav-gh" target="_blank" rel="noopener">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       GitHub
     </a>
@@ -809,7 +932,6 @@ img{display:block;max-width:100%}
   </div>
 </nav>
 
-<!-- MOBILE MENU -->
 <div class="mobile-menu" id="mobileMenu">
   <a href="#problem">Problem</a>
   <a href="#architecture">Architecture</a>
@@ -820,67 +942,70 @@ img{display:block;max-width:100%}
 </div>
 
 <!-- HERO -->
-<section class="hero">
+<section class="hero" id="hero">
   <div class="section">
-    <div class="hero-badge reveal">
+    <div class="hero-badge reveal" data-motion="blur-in" data-duration="slow" data-ease="smooth">
       <span class="hero-badge-dot"></span>
       Ubuntu 26.04 LTS Compatible
     </div>
-    <h1 class="reveal reveal-delay-1">Clipboard management on <span class="accent">Wayland</span>, finally working.</h1>
-    <p class="hero-sub reveal reveal-delay-2">CopyQ breaks on GNOME 50 because mutter removed the <code style="color:var(--text-2);font-size:var(--text-sm)">wl-data-control</code> protocol. This is the fix — XWayland bridge, Flatpak v16, one installer.</p>
-    <div class="hero-ctas reveal reveal-delay-3">
+    <h1 class="reveal" data-motion="fade-up" data-duration="slow" data-stagger="80">
+      Clipboard management on <span class="accent">Wayland</span>, finally working.
+    </h1>
+    <p class="hero-sub reveal" data-motion="fade-up" data-stagger="160">
+      CopyQ breaks on GNOME 50 because mutter removed the <code style="color:var(--text-2);font-size:var(--text-sm)">wl-data-control</code> protocol. This is the fix — XWayland bridge, Flatpak v16, one installer.
+    </p>
+    <div class="hero-ctas reveal" data-motion="fade-up" data-stagger="240">
       <a href="#install" class="btn btn-primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Install Now
       </a>
       <a href="https://github.com/marktantongco/copyq-linux-fix" class="btn btn-ghost" target="_blank" rel="noopener">View on GitHub</a>
     </div>
-    <div class="hero-cmd-card glow-border reveal reveal-delay-3">
+    <div class="hero-cmd-card glow-border reveal" data-motion="fade-up" data-stagger="320" data-ease="bouncy">
       <code><span class="cmt"># Run CopyQ through XWayland bridge</span>
 <span class="kw">QT_QPA_PLATFORM</span>=xcb <span class="kw">GDK_BACKEND</span>=<span class="str">x11</span> copyq</code>
     </div>
-    <div class="hero-stats reveal reveal-delay-3">
+    <div class="hero-stats reveal" data-motion="fade-up" data-stagger="400">
       <div>
-        <div class="hero-stat-value">v16.0.0</div>
+        <div class="hero-stat-value" data-count="16.0">0</div>
         <div class="hero-stat-label">Flatpak Version</div>
       </div>
       <div>
-        <div class="hero-stat-value">GNOME 50</div>
-        <div class="hero-stat-label">Target Desktop</div>
+        <div class="hero-stat-value" data-count="50">0</div>
+        <div class="hero-stat-label">GNOME Version</div>
       </div>
       <div>
-        <div class="hero-stat-value">7</div>
+        <div class="hero-stat-value" data-count="7">0</div>
         <div class="hero-stat-label">Script Modules</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- DIVIDER -->
 <div class="section-divider"><hr></div>
 
 <!-- PROBLEM -->
 <section class="problem" id="problem">
   <div class="section">
-    <div class="section-label reveal">Root Cause</div>
-    <h2 class="section-title reveal reveal-delay-1">Ubuntu 26.04 broke clipboard managers</h2>
-    <p class="section-desc reveal reveal-delay-2">The first Wayland-only LTS release removed critical clipboard protocols, leaving popular managers unable to function without workarounds.</p>
+    <div class="section-label reveal" data-motion="fade-right" data-ease="snappy">Root Cause</div>
+    <h2 class="section-title reveal" data-motion="fade-up">Ubuntu 26.04 broke clipboard managers</h2>
+    <p class="section-desc reveal" data-motion="fade-up" data-stagger="80">The first Wayland-only LTS release removed critical clipboard protocols, leaving popular managers unable to function without workarounds.</p>
     <div class="problem-cards">
-      <div class="problem-card reveal reveal-delay-1">
+      <div class="problem-card magnetic reveal" data-motion="scale-in" data-stagger="60" data-ease="bouncy">
         <div class="problem-card-icon">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
         <h3>GNOME 50 Wayland-Only</h3>
         <p>Ubuntu 26.04 ships GNOME 50 as its first LTS release with no Xorg session. All applications run under the Wayland compositor, breaking X11-dependent clipboard tools.</p>
       </div>
-      <div class="problem-card reveal reveal-delay-2">
+      <div class="problem-card magnetic reveal" data-motion="scale-in" data-stagger="140" data-ease="bouncy">
         <div class="problem-card-icon">
           <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
         <h3>No wl-data-control</h3>
         <p>Mutter removed the wl-data-control protocol as a privacy decision. Qt clipboard managers cannot register for clipboard events without it — this is the core blocker.</p>
       </div>
-      <div class="problem-card reveal reveal-delay-3">
+      <div class="problem-card magnetic reveal" data-motion="scale-in" data-stagger="220" data-ease="bouncy">
         <div class="problem-card-icon">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
         </div>
@@ -894,10 +1019,10 @@ img{display:block;max-width:100%}
 <!-- ARCHITECTURE -->
 <section class="arch" id="architecture">
   <div class="section">
-    <div class="section-label reveal">Data Flow</div>
-    <h2 class="section-title reveal reveal-delay-1">How the clipboard flows on Wayland</h2>
-    <p class="section-desc reveal reveal-delay-2">The fix routes clipboard data through the XWayland compatibility layer. Mutter proxies X11 selections to and from native Wayland clients transparently.</p>
-    <div class="arch-flow reveal">
+    <div class="section-label reveal" data-motion="fade-right" data-ease="snappy">Data Flow</div>
+    <h2 class="section-title reveal" data-motion="fade-up">How the clipboard flows on Wayland</h2>
+    <p class="section-desc reveal" data-motion="fade-up" data-stagger="80">The fix routes clipboard data through the XWayland compatibility layer. Mutter proxies X11 selections to and from native Wayland clients transparently.</p>
+    <div class="arch-flow reveal" id="archFlow">
       <div class="arch-node">
         <div class="node-label">Firefox / GNOME Terminal</div>
         <div class="node-proto">native Wayland client</div>
@@ -927,22 +1052,21 @@ img{display:block;max-width:100%}
         <div class="node-proto">Qt xcb clipboard client</div>
       </div>
     </div>
-    <div class="arch-note reveal">
+    <div class="arch-note reveal" data-motion="fade-up">
       The GNOME Shell extension for native clipboard monitoring <code>cannot register from Flatpak sandbox</code>. The XWayland bridge is the only working path for managed clipboard access on GNOME 50.
     </div>
   </div>
 </section>
 
-<!-- DIVIDER -->
 <div class="section-divider"><hr></div>
 
 <!-- SOLUTION -->
 <section class="solution" id="solution">
   <div class="section">
-    <div class="section-label reveal">Implementation</div>
-    <h2 class="section-title reveal reveal-delay-1">The fix</h2>
-    <p class="section-desc reveal reveal-delay-2">Two environment variables force CopyQ through the XWayland compatibility layer, restoring full clipboard monitoring capability.</p>
-    <div class="solution-grid reveal">
+    <div class="section-label reveal" data-motion="fade-right" data-ease="snappy">Implementation</div>
+    <h2 class="section-title reveal" data-motion="fade-up">The fix</h2>
+    <p class="section-desc reveal" data-motion="fade-up" data-stagger="80">Two environment variables force CopyQ through the XWayland compatibility layer, restoring full clipboard monitoring capability.</p>
+    <div class="solution-grid reveal" data-motion="fade-up">
       <div class="sol-main">
         <h3>XWayland Bridge</h3>
         <p>Setting <code>QT_QPA_PLATFORM=xcb</code> forces Qt applications through the XWayland compatibility layer. Mutter still proxies X11 selections to Wayland clients, so CopyQ intercepts clipboard data through the X11 selection protocol.</p>
@@ -975,7 +1099,7 @@ img{display:block;max-width:100%}
 
 <!-- KNOWN LIMITATIONS -->
 <section class="limitations" id="limitations">
-  <div class="limitations-band reveal">
+  <div class="limitations-band reveal" data-motion="fade-up">
     <div class="limitations-inner">
       <h2>
         <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -987,16 +1111,15 @@ img{display:block;max-width:100%}
   </div>
 </section>
 
-<!-- DIVIDER -->
 <div class="section-divider"><hr></div>
 
 <!-- INSTALL -->
 <section class="install" id="install">
   <div class="section">
-    <div class="section-label reveal">Quick Start</div>
-    <h2 class="section-title reveal reveal-delay-1">Install</h2>
-    <p class="section-desc reveal reveal-delay-2">Two methods to get CopyQ running. The modular installer handles all configuration automatically — Flatpak, overrides, shortcuts, and autostart.</p>
-    <div class="install-grid reveal">
+    <div class="section-label reveal" data-motion="fade-right" data-ease="snappy">Quick Start</div>
+    <h2 class="section-title reveal" data-motion="fade-up">Install</h2>
+    <p class="section-desc reveal" data-motion="fade-up" data-stagger="80">Two methods to get CopyQ running. The modular installer handles all configuration automatically — Flatpak, overrides, shortcuts, and autostart.</p>
+    <div class="install-grid reveal" data-motion="fade-up">
       <div>
         <h3>
           Clone and Run
@@ -1026,28 +1149,27 @@ curl -fsSL https://raw.githubusercontent.com/
         </div>
       </div>
     </div>
-    <div class="install-note reveal">
+    <div class="install-note reveal" data-motion="fade-up">
       <code>./install.sh --uninstall</code> to remove all changes.
-      <span style="color:var(--text-2);font-size:var(--text-xs);margin-left:var(--space-3)">·</span>
-      <code style="margin-left:var(--space-3)">./install.sh --diagnose</code> to troubleshoot.
+      <span style="color:var(--text-2);font-size:var(--text-xs);margin:0 var(--space-3)">·</span>
+      <code style="margin-left:0">./install.sh --diagnose</code> to troubleshoot.
     </div>
-    <a href="https://github.com/marktantongco/copyq-linux-fix#troubleshooting" class="install-link reveal" target="_blank" rel="noopener">
+    <a href="https://github.com/marktantongco/copyq-linux-fix#troubleshooting" class="install-link reveal" data-motion="fade-right" data-stagger="60" target="_blank" rel="noopener">
       Full troubleshooting documentation
       <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </a>
   </div>
 </section>
 
-<!-- DIVIDER -->
 <div class="section-divider"><hr></div>
 
 <!-- TOOLS -->
 <section class="tools" id="tools">
   <div class="section">
-    <div class="section-label reveal">Ecosystem</div>
-    <h2 class="section-title reveal reveal-delay-1">Tools and alternatives</h2>
-    <p class="section-desc reveal reveal-delay-2">The Wayland input landscape is evolving. These tools complement or replace CopyQ for specific use cases on Wayland-native desktops.</p>
-    <div class="tools-list reveal">
+    <div class="section-label reveal" data-motion="fade-right" data-ease="snappy">Ecosystem</div>
+    <h2 class="section-title reveal" data-motion="fade-up">Tools and alternatives</h2>
+    <p class="section-desc reveal" data-motion="fade-up" data-stagger="80">The Wayland input landscape is evolving. These tools complement or replace CopyQ for specific use cases on Wayland-native desktops.</p>
+    <div class="tools-list reveal" data-motion="fade-up">
       <div class="tool-item">
         <dt>ydotool</dt>
         <dd>Simulates input events at the kernel level using <code>/dev/uinput</code>. Works on Wayland without XWayland but requires root or <code>uinput</code> group membership for the <code>ydotoold</code> daemon. Alternative to xdotool for keyboard/macro simulation.</dd>
@@ -1081,35 +1203,22 @@ curl -fsSL https://raw.githubusercontent.com/
 (function(){
   var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Scroll progress bar
+  /* ===== SCROLL PROGRESS + NAV STATE ===== */
   var progressBar = document.getElementById('scrollProgress');
-  function updateProgress(){
-    var scrollTop = window.scrollY;
-    var docHeight = document.documentElement.scrollHeight - window.innerHeight;
-    var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-    progressBar.style.width = progress + '%';
-  }
-
-  // Nav scroll state
   var nav = document.getElementById('nav');
-  function updateNav(){
-    nav.classList.toggle('scrolled', window.scrollY > 20);
+  function onScroll(){
+    var st = window.scrollY;
+    var dh = document.documentElement.scrollHeight - window.innerHeight;
+    progressBar.style.width = (dh > 0 ? (st / dh) * 100 : 0) + '%';
+    nav.classList.toggle('scrolled', st > 20);
   }
-
-  // Scroll handler
   var scrollTick = false;
   window.addEventListener('scroll', function(){
-    if(!scrollTick){
-      requestAnimationFrame(function(){
-        updateProgress();
-        updateNav();
-        scrollTick = false;
-      });
-      scrollTick = true;
-    }
-  }, {passive: true});
+    if(!scrollTick){requestAnimationFrame(function(){onScroll();scrollTick=false});scrollTick=true}
+  },{passive:true});
+  onScroll();
 
-  // Scroll reveal with staggered delays
+  /* ===== EMIL KOWALSKI: Physics-based reveal system ===== */
   if(!prefersReduced && 'IntersectionObserver' in window){
     var reveals = document.querySelectorAll('.reveal');
     var obs = new IntersectionObserver(function(entries){
@@ -1119,25 +1228,102 @@ curl -fsSL https://raw.githubusercontent.com/
           obs.unobserve(e.target);
         }
       });
-    },{threshold:0.08,rootMargin:'0px 0px -32px 0px'});
+    },{threshold:0.06,rootMargin:'0px 0px -24px 0px'});
     reveals.forEach(function(el){obs.observe(el)});
   } else {
     document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')});
   }
 
-  // Toast
+  /* ===== EMIL: Animated counter (spring-decelerated) ===== */
+  var counters = document.querySelectorAll('[data-count]');
+  var counterObs = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(!e.isIntersecting) return;
+      counterObs.unobserve(e.target);
+      var el = e.target;
+      var target = parseFloat(el.getAttribute('data-count'));
+      var isFloat = target % 1 !== 0;
+      var duration = 1200;
+      var start = performance.now();
+      // Emil spring-like deceleration curve
+      function springProgress(t){
+        if(t >= 1) return 1;
+        // Damped spring approximation
+        return 1 - Math.pow(1 - t, 3) * Math.cos(t * Math.PI * 1.2);
+      }
+      function tick(now){
+        var t = Math.min((now - start) / duration, 1);
+        var p = springProgress(t);
+        var val = p * target;
+        el.textContent = isFloat ? val.toFixed(1) : Math.round(val);
+        if(t < 1) requestAnimationFrame(tick);
+        else { el.textContent = isFloat ? target.toFixed(1) : target; el.classList.add('counted'); }
+      }
+      requestAnimationFrame(tick);
+    });
+  },{threshold:0.5});
+  counters.forEach(function(c){counterObs.observe(c)});
+
+  /* ===== EMIL: Magnetic hover effect ===== */
+  if(!prefersReduced){
+    var magnetics = document.querySelectorAll('.magnetic');
+    magnetics.forEach(function(el){
+      el.addEventListener('mousemove', function(e){
+        var rect = el.getBoundingClientRect();
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        var dx = (e.clientX - cx) / rect.width;
+        var dy = (e.clientY - cy) / rect.height;
+        el.style.setProperty('--mx', (dx * 6) + 'px');
+        el.style.setProperty('--my', (dy * 6) + 'px');
+      });
+      el.addEventListener('mouseleave', function(){
+        el.style.setProperty('--mx', '0px');
+        el.style.setProperty('--my', '0px');
+      });
+    });
+  }
+
+  /* ===== EMIL: Button ripple on tap ===== */
+  document.querySelectorAll('.btn-primary').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      var rect = btn.getBoundingClientRect();
+      var ripple = document.createElement('span');
+      ripple.className = 'btn-ripple';
+      var size = Math.max(rect.width, rect.height);
+      ripple.style.width = ripple.style.height = size + 'px';
+      ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+      ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+      btn.appendChild(ripple);
+      ripple.addEventListener('animationend', function(){ripple.remove()});
+    });
+  });
+
+  /* ===== EMIL: Subtle parallax on hero elements ===== */
+  if(!prefersReduced){
+    var heroSection = document.getElementById('hero');
+    var heroReveals = heroSection ? heroSection.querySelectorAll('.reveal') : [];
+    window.addEventListener('scroll', function(){
+      var st = window.scrollY;
+      if(st > window.innerHeight) return;
+      var factor = st * 0.15;
+      heroReveals.forEach(function(el, i){
+        el.style.transform = 'translateY(' + (factor * (0.5 + i * 0.15)) + 'px)';
+      });
+    },{passive:true});
+  }
+
+  /* ===== Toast ===== */
   var toast = document.getElementById('toast');
   var toastTimer = null;
   function showToast(msg){
     toast.innerHTML = '<span class="toast-icon"></span>' + msg;
     toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){
-      toast.classList.remove('show');
-    },2000);
+    toastTimer = setTimeout(function(){toast.classList.remove('show')},2200);
   }
 
-  // Copy buttons
+  /* ===== Copy buttons ===== */
   document.querySelectorAll('.copy-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       var text = this.getAttribute('data-copy');
@@ -1147,8 +1333,7 @@ curl -fsSL https://raw.githubusercontent.com/
         var ta = document.createElement('textarea');
         ta.value = text;
         ta.style.position='fixed';ta.style.opacity='0';
-        document.body.appendChild(ta);
-        ta.select();
+        document.body.appendChild(ta);ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
         showToast('Copied to clipboard');
@@ -1156,13 +1341,12 @@ curl -fsSL https://raw.githubusercontent.com/
     });
   });
 
-  // Hamburger
+  /* ===== Hamburger ===== */
   var hamburger = document.getElementById('hamburger');
   var mobileMenu = document.getElementById('mobileMenu');
   hamburger.addEventListener('click',function(){
     mobileMenu.classList.toggle('open');
-    var expanded = mobileMenu.classList.contains('open');
-    hamburger.setAttribute('aria-expanded',expanded);
+    hamburger.setAttribute('aria-expanded', mobileMenu.classList.contains('open'));
   });
   mobileMenu.querySelectorAll('a').forEach(function(a){
     a.addEventListener('click',function(){
