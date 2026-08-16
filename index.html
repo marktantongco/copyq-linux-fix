@@ -3,695 +3,808 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CopyQ Linux Fix: Clipboard Manager for Ubuntu 26.04 Wayland</title>
-<meta name="description" content="Install CopyQ 16.0.0 clipboard manager on Ubuntu 26.04 LTS with full Wayland/XWayland compatibility. Includes Issue #3587 workaround and known limitations.">
+<title>CopyQ Linux Fix — Clipboard Manager for Ubuntu 26.04 Wayland</title>
+<meta name="description" content="Install CopyQ 16.0.0 clipboard manager on Ubuntu 26.04 LTS with full Wayland/XWayland compatibility. Flatpak v16.0.0, XWayland bridge, Issue #3587 workaround.">
 <meta property="og:title" content="CopyQ Linux Fix: Clipboard Manager for Ubuntu 26.04 Wayland">
 <meta property="og:description" content="The complete workaround for CopyQ on Ubuntu 26.04 LTS Wayland-only GNOME 50. Flatpak v16.0.0, XWayland bridge, and known limitations documented.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://marktantongco.github.io/copyq-linux-fix/">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2300d4aa'/><path d='M8 10h6v2H10v2h3v2h-3v4H8V10zm10 0h2l3 5.5V10h2v10h-2L20 14.5V20h-2V10z' fill='%230a0a0f'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2334d399'/><path d='M9 10h5v2h-3v2h2.5v2H11v4H9V10zm9 0h2l2.5 4.5V10h2v10h-2L18 15.5V20h-2V10z' fill='%230a0a0f'/></svg>">
 <style>
+/* ===== RESET & FOUNDATION ===== */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0a0a0f;
-  --surface:#111118;
-  --border:#1e1e2a;
-  --text:#e8e8ed;
-  --text-secondary:#8b8b9e;
-  --accent:#00d4aa;
-  --accent-hover:#00f0c0;
-  --warning:#f5a623;
-  --error:#ff4757;
-  --ease-out:cubic-bezier(0.23,1,0.32,1);
-  --ease-in-out:cubic-bezier(0.77,0,0.175,1);
-  --radius:8px;
-  --nav-h:64px;
+  /* Color system */
+  --bg-0:#06060a;
+  --bg-1:#0c0c14;
+  --bg-2:#12121e;
+  --bg-3:#1a1a2a;
+  --border-0:rgba(255,255,255,0.04);
+  --border-1:rgba(255,255,255,0.07);
+  --border-2:rgba(255,255,255,0.12);
+  --text-0:rgba(255,255,255,0.92);
+  --text-1:rgba(255,255,255,0.64);
+  --text-2:rgba(255,255,255,0.40);
+  --accent:#34d399;
+  --accent-soft:rgba(52,211,153,0.12);
+  --accent-hover:#4ade80;
+  --accent-glow:rgba(52,211,153,0.25);
+  --warn:#fbbf24;
+  --warn-soft:rgba(251,191,36,0.08);
+  --warn-glow:rgba(251,191,36,0.20);
+  --danger:#f87171;
+  /* Typography */
+  --font-sans:'Inter','SF Pro Display',-apple-system,'Segoe UI',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono','Cascadia Code','Fira Code',Consolas,monospace;
+  --text-xs:0.75rem;
+  --text-sm:0.8125rem;
+  --text-base:0.9375rem;
+  --text-lg:1.125rem;
+  --text-xl:1.375rem;
+  --text-2xl:clamp(1.75rem,4vw,2.75rem);
+  --text-3xl:clamp(2.25rem,5vw,3.5rem);
+  --leading-tight:1.1;
+  --leading-snug:1.35;
+  --leading-normal:1.6;
+  --tracking-tight:-0.035em;
+  --tracking-normal:-0.01em;
+  /* Spacing */
+  --space-1:0.25rem;
+  --space-2:0.5rem;
+  --space-3:0.75rem;
+  --space-4:1rem;
+  --space-5:1.25rem;
+  --space-6:1.5rem;
+  --space-8:2rem;
+  --space-10:2.5rem;
+  --space-12:3rem;
+  --space-16:4rem;
+  --space-20:5rem;
+  --space-24:6rem;
+  /* Radius */
+  --radius-sm:6px;
+  --radius-md:10px;
+  --radius-lg:14px;
+  --radius-xl:20px;
+  /* Easing */
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+  --ease-in-out:cubic-bezier(0.65,0,0.35,1);
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+  /* Layout */
+  --nav-h:60px;
+  --max-w:72rem;
 }
-html{scroll-behavior:smooth}
+
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--bg-0);
+  color:var(--text-0);
+  font-family:var(--font-sans);
+  font-size:var(--text-base);
   font-weight:400;
-  line-height:1.6;
-  max-width:65ch;
+  line-height:var(--leading-normal);
+  letter-spacing:var(--tracking-normal);
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
-  caret-color:var(--accent);
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
 }
-::selection{background:rgba(0,212,170,0.3);color:#fff}
-::-webkit-scrollbar{width:8px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--accent)}
-*:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-a{color:var(--accent);text-decoration:none;transition:color 160ms var(--ease-out)}
+
+/* Selection */
+::selection{background:var(--accent-soft);color:var(--accent)}
+
+/* Focus */
+*:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+/* Links */
+a{color:var(--accent);text-decoration:none;transition:color 200ms var(--ease-out)}
 a:hover{color:var(--accent-hover)}
-code,pre{font-family:'SF Mono','Cascadia Code','Fira Code',Consolas,monospace}
+
+/* Code */
+code,pre{font-family:var(--font-mono)}
 img{display:block;max-width:100%}
 
-/* Scroll reveal */
+/* ===== SCROLL PROGRESS ===== */
+.scroll-progress{
+  position:fixed;top:0;left:0;height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-hover));
+  z-index:1000;width:0%;
+  transition:none;
+}
+
+/* ===== BACKGROUND GLOW ===== */
+.bg-glow{
+  position:fixed;
+  top:-40%;left:-20%;
+  width:60%;height:80%;
+  background:radial-gradient(ellipse,rgba(52,211,153,0.04) 0%,transparent 70%);
+  pointer-events:none;
+  z-index:0;
+}
+.bg-glow-2{
+  position:fixed;
+  bottom:-30%;right:-20%;
+  width:50%;height:70%;
+  background:radial-gradient(ellipse,rgba(52,211,153,0.03) 0%,transparent 70%);
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ===== REVEAL ANIMATION ===== */
 .reveal{
   opacity:0;
-  transform:translateY(20px);
-  transition:opacity 280ms var(--ease-out),transform 280ms var(--ease-out);
+  transform:translateY(24px);
+  transition:opacity 600ms var(--ease-out),transform 600ms var(--ease-out);
 }
-.reveal.visible{
-  opacity:1;
-  transform:translateY(0);
-}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:80ms}
+.reveal-delay-2{transition-delay:160ms}
+.reveal-delay-3{transition-delay:240ms}
 
-@media (prefers-reduced-motion:reduce){
+@media(prefers-reduced-motion:reduce){
   .reveal{opacity:1;transform:none;transition:none}
-  .hero-cmd-card{animation:none!important}
+  .reveal-delay-1,.reveal-delay-2,.reveal-delay-3{transition-delay:0}
+  .hero-cmd-card,.arch-node,.glow-border{animation:none!important}
 }
 
-/* === NAV === */
+/* ===== SECTION UTILITY ===== */
+.section{width:100%;max-width:var(--max-w);margin:0 auto;padding:0 var(--space-6)}
+.section-label{
+  display:inline-flex;align-items:center;gap:var(--space-2);
+  font-family:var(--font-mono);font-size:var(--text-xs);
+  font-weight:500;
+  color:var(--accent);
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  margin-bottom:var(--space-4);
+}
+.section-label::before{
+  content:'';display:block;width:8px;height:8px;
+  background:var(--accent);border-radius:50%;
+  box-shadow:0 0 8px var(--accent-glow);
+}
+.section-title{
+  font-weight:700;
+  font-size:var(--text-2xl);
+  letter-spacing:var(--tracking-tight);
+  line-height:var(--leading-tight);
+  color:var(--text-0);
+}
+.section-desc{
+  color:var(--text-1);
+  font-size:var(--text-base);
+  line-height:var(--leading-normal);
+  margin-top:var(--space-4);
+  max-width:40rem;
+}
+
+/* ===== NAV ===== */
 .nav{
-  position:sticky;
-  top:0;
+  position:fixed;
+  top:0;left:0;right:0;
   z-index:100;
   height:var(--nav-h);
-  display:flex;
-  align-items:center;
-  padding:0 1.5rem;
-  background:rgba(10,10,15,0.8);
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--border);
-  width:100%;
-  max-width:100%;
+  display:flex;align-items:center;
+  padding:0 var(--space-6);
+  background:rgba(6,6,10,0.7);
+  backdrop-filter:blur(16px) saturate(180%);
+  -webkit-backdrop-filter:blur(16px) saturate(180%);
+  border-bottom:1px solid var(--border-0);
+  transition:background 300ms var(--ease-out),border-color 300ms var(--ease-out);
+}
+.nav.scrolled{
+  background:rgba(6,6,10,0.88);
+  border-bottom-color:var(--border-1);
 }
 .nav-inner{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  width:100%;
-  max-width:80rem;
-  margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;max-width:var(--max-w);margin:0 auto;
 }
 .nav-logo{
-  font-weight:800;
-  font-size:1.125rem;
-  color:var(--text);
-  letter-spacing:-0.03em;
+  font-weight:700;font-size:var(--text-sm);
+  color:var(--text-0);letter-spacing:var(--tracking-tight);
+  display:flex;align-items:center;gap:var(--space-2);
 }
-.nav-logo span{color:var(--accent)}
-.nav-links{display:flex;align-items:center;gap:2rem;list-style:none}
+.nav-logo-icon{
+  width:22px;height:22px;border-radius:5px;
+  background:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:0.625rem;color:var(--bg-0);
+}
+.nav-links{display:flex;align-items:center;gap:var(--space-8);list-style:none}
 .nav-links a{
-  color:var(--text-secondary);
-  font-size:0.875rem;
-  position:relative;
-  padding:2px 0;
+  color:var(--text-2);font-size:var(--text-sm);font-weight:500;
+  position:relative;padding:2px 0;
+  transition:color 200ms var(--ease-out);
 }
 .nav-links a::after{
-  content:'';
-  position:absolute;
-  bottom:-2px;left:0;
-  width:0;height:1px;
-  background:var(--accent);
-  transition:width 200ms var(--ease-out);
+  content:'';position:absolute;bottom:-4px;left:50%;width:0;height:1.5px;
+  background:var(--accent);border-radius:1px;
+  transition:width 240ms var(--ease-out),left 240ms var(--ease-out);
 }
-.nav-links a:hover{color:var(--text)}
-.nav-links a:hover::after{width:100%}
-.nav-gh-btn{
-  display:inline-flex;align-items:center;gap:0.5rem;
-  padding:0.5rem 1rem;
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  color:var(--text-secondary);
-  font-size:0.8125rem;
-  background:transparent;
-  cursor:pointer;
-  transition:border-color 160ms var(--ease-out),color 160ms var(--ease-out),transform 160ms var(--ease-out);
+.nav-links a:hover{color:var(--text-0)}
+.nav-links a:hover::after{width:100%;left:0}
+.nav-gh{
+  display:inline-flex;align-items:center;gap:var(--space-2);
+  padding:var(--space-2) var(--space-4);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius-md);
+  color:var(--text-1);font-size:var(--text-xs);font-weight:500;
+  background:transparent;cursor:pointer;
+  transition:all 200ms var(--ease-out);
 }
-.nav-gh-btn:hover{border-color:var(--accent);color:var(--text)}
-.nav-gh-btn:active{transform:scale(0.97)}
-.nav-gh-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.nav-gh:hover{border-color:var(--accent);color:var(--text-0);background:var(--accent-soft)}
+.nav-gh:active{transform:scale(0.97)}
+.nav-gh svg{width:14px;height:14px}
 
 /* Hamburger */
-.nav-hamburger{
-  display:none;
-  background:none;border:none;cursor:pointer;padding:0.25rem;
-  color:var(--text);
-}
-.nav-hamburger svg{width:24px;height:24px}
+.nav-hamburger{display:none;background:none;border:none;cursor:pointer;padding:var(--space-1);color:var(--text-1)}
+.nav-hamburger svg{width:22px;height:22px}
 .mobile-menu{
-  display:none;
-  position:fixed;
+  display:none;position:fixed;
   top:var(--nav-h);left:0;right:0;bottom:0;
-  background:rgba(10,10,15,0.95);
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px);
-  z-index:99;
-  padding:2rem 1.5rem;
-  flex-direction:column;
-  gap:1.5rem;
+  background:rgba(6,6,10,0.96);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  z-index:99;padding:var(--space-8) var(--space-6);
+  flex-direction:column;gap:var(--space-6);
 }
 .mobile-menu.open{display:flex}
 .mobile-menu a{
-  color:var(--text);
-  font-size:1.125rem;
-  padding:0.5rem 0;
-  border-bottom:1px solid var(--border);
+  color:var(--text-0);font-size:var(--text-xl);font-weight:500;
+  padding:var(--space-3) 0;
+  border-bottom:1px solid var(--border-0);
+  transition:color 200ms var(--ease-out);
 }
-
+.mobile-menu a:hover{color:var(--accent)}
 @media(max-width:768px){
-  .nav-links,.nav-gh-btn{display:none}
+  .nav-links,.nav-gh{display:none}
   .nav-hamburger{display:block}
 }
 
-/* === BUTTONS === */
+/* ===== BUTTONS ===== */
 .btn{
-  display:inline-flex;align-items:center;gap:0.5rem;
-  padding:0.625rem 1.5rem;
-  border-radius:var(--radius);
-  font-family:inherit;
-  font-size:0.875rem;
-  font-weight:600;
+  display:inline-flex;align-items:center;gap:var(--space-2);
+  padding:var(--space-3) var(--space-6);
+  border-radius:var(--radius-md);
+  font-family:var(--font-sans);font-size:var(--text-sm);font-weight:600;
   cursor:pointer;
-  transition:background 160ms var(--ease-out),border-color 160ms var(--ease-out),transform 160ms var(--ease-out);
+  transition:all 200ms var(--ease-out);
+  position:relative;overflow:hidden;
 }
 .btn:active{transform:scale(0.97)}
-.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn-primary{
-  background:var(--accent);
-  color:var(--bg);
-  border:none;
+  background:var(--accent);color:var(--bg-0);border:none;
+  box-shadow:0 0 0 0 var(--accent-glow);
 }
-.btn-primary:hover{background:var(--accent-hover)}
+.btn-primary:hover{
+  background:var(--accent-hover);
+  box-shadow:0 0 20px 0 var(--accent-glow);
+}
 .btn-ghost{
-  background:transparent;
-  color:var(--text);
-  border:1px solid var(--border);
+  background:transparent;color:var(--text-0);
+  border:1px solid var(--border-1);
 }
-.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-ghost:hover{border-color:var(--border-2);background:var(--bg-2)}
 
-/* === SECTION WRAPPER === */
-.section{
-  width:100%;
-  max-width:80rem;
-  margin:0 auto;
-  padding:0 1rem;
-}
-.section-narrow{
-  width:100%;
-  max-width:42rem;
-  margin:0 auto;
-  padding:0 1rem;
-}
-
-/* === 1. HERO === */
+/* ===== 1. HERO ===== */
 .hero{
   min-height:100dvh;
-  display:flex;
-  align-items:flex-start;
-  padding-top:6rem;
-  padding-bottom:4rem;
+  display:flex;align-items:flex-start;
+  padding-top:calc(var(--nav-h) + var(--space-16));
+  padding-bottom:var(--space-16);
+  position:relative;z-index:1;
 }
 .hero .section{display:flex;flex-direction:column;align-items:flex-start}
-.hero h1{
-  font-weight:800;
-  font-size:clamp(2rem,5vw,3.25rem);
-  letter-spacing:-0.03em;
-  line-height:1;
-  color:var(--text);
-  max-width:42rem;
+.hero-badge{
+  display:inline-flex;align-items:center;gap:var(--space-2);
+  padding:var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+  background:var(--accent-soft);
+  border:1px solid rgba(52,211,153,0.15);
+  border-radius:100px;
+  font-size:var(--text-xs);font-weight:600;
+  color:var(--accent);
+  margin-bottom:var(--space-8);
 }
+.hero-badge-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--accent);
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%,100%{opacity:1;box-shadow:0 0 0 0 var(--accent-glow)}
+  50%{opacity:0.7;box-shadow:0 0 0 6px transparent}
+}
+.hero h1{
+  font-weight:700;
+  font-size:var(--text-3xl);
+  letter-spacing:var(--tracking-tight);
+  line-height:var(--leading-tight);
+  color:var(--text-0);
+  max-width:44rem;
+}
+.hero h1 .accent{color:var(--accent)}
 .hero-sub{
-  color:var(--text-secondary);
-  font-size:1.0625rem;
-  margin-top:1.25rem;
-  max-width:36rem;
-  line-height:1.6;
+  color:var(--text-1);
+  font-size:var(--text-lg);
+  margin-top:var(--space-6);
+  max-width:38rem;
+  line-height:var(--leading-normal);
 }
 .hero-ctas{
-  display:flex;gap:0.75rem;
-  margin-top:2rem;
+  display:flex;gap:var(--space-3);
+  margin-top:var(--space-10);
   flex-wrap:wrap;
 }
 .hero-cmd-card{
-  margin-top:2.5rem;
-  padding:1rem 1.25rem;
-  background:var(--surface);
-  border-radius:var(--radius);
-  border:1px solid transparent;
-  background-clip:padding-box;
+  margin-top:var(--space-12);
+  padding:var(--space-5) var(--space-6);
+  background:var(--bg-1);
+  border-radius:var(--radius-lg);
   position:relative;
-  width:100%;
-  max-width:38rem;
+  width:100%;max-width:42rem;
   overflow:hidden;
 }
-.hero-cmd-card::before{
+/* Glow border effect */
+.glow-border{
+  position:relative;
+}
+.glow-border::before{
   content:'';
-  position:absolute;
-  inset:-1px;
-  border-radius:calc(var(--radius) + 1px);
-  background:linear-gradient(135deg,var(--accent),#0a0a0f 40%,#0a0a0f 60%,var(--accent-hover));
-  background-size:300% 300%;
-  z-index:-1;
-  animation:gradientShift 4s ease-in-out infinite;
+  position:absolute;inset:0;
+  border-radius:inherit;
+  padding:1px;
+  background:linear-gradient(135deg,var(--accent),transparent 40%,transparent 60%,rgba(52,211,153,0.5));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  opacity:0.6;
+  transition:opacity 300ms var(--ease-out);
+  pointer-events:none;
 }
-@keyframes gradientShift{
-  0%,100%{background-position:0% 50%}
-  50%{background-position:100% 50%}
-}
+.glow-border:hover::before{opacity:1}
 .hero-cmd-card code{
-  display:block;
-  font-size:0.8125rem;
-  color:var(--text);
-  line-height:1.7;
-  white-space:pre;
-  overflow-x:auto;
+  display:block;font-size:var(--text-sm);
+  color:var(--text-0);line-height:1.8;
+  white-space:pre;overflow-x:auto;
 }
-.hero-cmd-card code .cmt{color:var(--text-secondary)}
-.hero-cmd-card code .kw{color:var(--accent)}
-.hero-cmd-card code .str{color:var(--warning)}
+.hero-cmd-card .cmt{color:var(--text-2)}
+.hero-cmd-card .kw{color:var(--accent)}
+.hero-cmd-card .str{color:var(--warn)}
 
-/* === 2. PROBLEM === */
-.problem{
-  padding:6rem 0;
+/* Hero stats */
+.hero-stats{
+  display:flex;gap:var(--space-10);
+  margin-top:var(--space-12);
+  padding-top:var(--space-8);
+  border-top:1px solid var(--border-0);
 }
-.problem h2{
-  font-weight:800;
-  font-size:clamp(1.5rem,3vw,2rem);
-  letter-spacing:-0.03em;
-  line-height:1.1;
-  color:var(--text);
+.hero-stat-value{
+  font-weight:700;font-size:var(--text-xl);
+  color:var(--text-0);
+  letter-spacing:var(--tracking-tight);
 }
+.hero-stat-label{
+  font-size:var(--text-xs);color:var(--text-2);
+  margin-top:var(--space-1);
+  text-transform:uppercase;letter-spacing:0.06em;
+}
+
+/* ===== 2. PROBLEM ===== */
+.problem{padding:var(--space-24) 0;position:relative;z-index:1}
 .problem-cards{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));
-  gap:1.25rem;
-  margin-top:2.5rem;
-}
-.problem-card{
-  padding:1.5rem;
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  background:var(--surface);
-}
-.problem-card svg{
-  width:24px;height:24px;
-  color:var(--accent);
-  margin-bottom:1rem;
-  stroke:currentColor;
-  fill:none;
-  stroke-width:1.5;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-}
-.problem-card h3{
-  font-weight:700;
-  font-size:1rem;
-  color:var(--text);
-  margin-bottom:0.5rem;
-  letter-spacing:-0.01em;
-}
-.problem-card p{
-  color:var(--text-secondary);
-  font-size:0.875rem;
-  line-height:1.6;
-}
-
-/* === 3. ARCHITECTURE === */
-.arch{
-  padding:6rem 0;
-}
-.arch h2{
-  font-weight:800;
-  font-size:clamp(1.5rem,3vw,2rem);
-  letter-spacing:-0.03em;
-  line-height:1.1;
-  color:var(--text);
-  margin-bottom:3rem;
-}
-.arch-flow{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:0;
-}
-.arch-node{
-  padding:1rem 2rem;
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  background:var(--surface);
-  text-align:center;
-  min-width:16rem;
-}
-.arch-node .node-label{
-  font-weight:700;
-  font-size:0.9375rem;
-  color:var(--text);
-}
-.arch-node .node-proto{
-  font-family:'SF Mono','Cascadia Code','Fira Code',Consolas,monospace;
-  font-size:0.75rem;
-  color:var(--accent);
-  margin-top:0.25rem;
-}
-.arch-arrow{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding:0.5rem 0;
-  color:var(--text-secondary);
-}
-.arch-arrow svg{
-  width:20px;height:20px;
-  stroke:currentColor;
-  fill:none;
-  stroke-width:1.5;
-}
-.arch-arrow .arrow-label{
-  font-family:'SF Mono','Cascadia Code','Fira Code',Consolas,monospace;
-  font-size:0.6875rem;
-  color:var(--text-secondary);
-  margin-top:0.125rem;
-}
-.arch-note{
-  margin-top:2.5rem;
-  padding:1rem 1.25rem;
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  background:var(--surface);
-  font-size:0.8125rem;
-  color:var(--text-secondary);
-  max-width:42rem;
-  margin-left:auto;
-  margin-right:auto;
-  line-height:1.6;
-}
-.arch-note code{
-  color:var(--accent);
-  font-size:0.8125rem;
-}
-
-/* === 4. SOLUTION === */
-.solution{
-  padding:6rem 0;
-}
-.solution h2{
-  font-weight:800;
-  font-size:clamp(1.5rem,3vw,2rem);
-  letter-spacing:-0.03em;
-  line-height:1.1;
-  color:var(--text);
-  margin-bottom:2.5rem;
-}
-.solution-grid{
-  display:grid;
-  grid-template-columns:3fr 2fr;
-  gap:3rem;
-  align-items:start;
+  grid-template-columns:repeat(3,1fr);
+  gap:var(--space-4);
+  margin-top:var(--space-10);
 }
 @media(max-width:768px){
-  .solution-grid{grid-template-columns:1fr;gap:2rem}
+  .problem-cards{grid-template-columns:1fr}
+  .hero-stats{flex-direction:column;gap:var(--space-6)}
 }
+.problem-card{
+  padding:var(--space-6);
+  border:1px solid var(--border-0);
+  border-radius:var(--radius-lg);
+  background:var(--bg-1);
+  transition:border-color 300ms var(--ease-out),transform 300ms var(--ease-out),box-shadow 300ms var(--ease-out);
+}
+.problem-card:hover{
+  border-color:var(--border-2);
+  transform:translateY(-2px);
+  box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+.problem-card-icon{
+  width:40px;height:40px;
+  border-radius:var(--radius-sm);
+  background:var(--warn-soft);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:var(--space-5);
+}
+.problem-card-icon svg{
+  width:20px;height:20px;
+  stroke:var(--warn);fill:none;
+  stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;
+}
+.problem-card h3{
+  font-weight:600;font-size:var(--text-base);
+  color:var(--text-0);
+  margin-bottom:var(--space-3);
+  letter-spacing:var(--tracking-normal);
+}
+.problem-card p{
+  color:var(--text-1);
+  font-size:var(--text-sm);
+  line-height:var(--leading-normal);
+}
+
+/* ===== 3. ARCHITECTURE ===== */
+.arch{padding:var(--space-24) 0;position:relative;z-index:1}
+.arch-flow{
+  display:flex;flex-direction:column;align-items:center;
+  gap:0;margin-top:var(--space-10);
+}
+.arch-node{
+  padding:var(--space-4) var(--space-8);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius-lg);
+  background:var(--bg-1);
+  text-align:center;
+  min-width:18rem;
+  transition:border-color 300ms var(--ease-out),box-shadow 300ms var(--ease-out);
+  position:relative;
+}
+.arch-node:hover{
+  border-color:var(--accent);
+  box-shadow:0 0 24px var(--accent-glow);
+}
+.arch-node.active{
+  border-color:var(--accent);
+  box-shadow:0 0 16px var(--accent-glow);
+}
+.arch-node.active .node-label{color:var(--accent)}
+.node-label{
+  font-weight:600;font-size:var(--text-sm);
+  color:var(--text-0);
+}
+.node-proto{
+  font-family:var(--font-mono);
+  font-size:var(--text-xs);
+  color:var(--text-2);
+  margin-top:var(--space-1);
+}
+.arch-arrow{
+  display:flex;flex-direction:column;align-items:center;
+  padding:var(--space-2) 0;
+  color:var(--text-2);
+}
+.arch-arrow svg{
+  width:16px;height:16px;
+  stroke:currentColor;fill:none;stroke-width:1.5;
+  stroke-dasharray:3 3;
+}
+.arch-arrow .arrow-label{
+  font-family:var(--font-mono);
+  font-size:0.625rem;
+  color:var(--text-2);
+  margin-top:var(--space-1);
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+.arch-note{
+  margin-top:var(--space-10);
+  padding:var(--space-5) var(--space-6);
+  border:1px solid var(--border-0);
+  border-radius:var(--radius-md);
+  background:var(--bg-1);
+  font-size:var(--text-sm);
+  color:var(--text-1);
+  max-width:44rem;
+  margin-left:auto;margin-right:auto;
+  line-height:var(--leading-normal);
+}
+.arch-note code{color:var(--warn);font-size:var(--text-sm)}
+
+/* ===== 4. SOLUTION ===== */
+.solution{padding:var(--space-24) 0;position:relative;z-index:1}
+.solution-grid{
+  display:grid;
+  grid-template-columns:1.6fr 1fr;
+  gap:var(--space-10);
+  align-items:start;
+  margin-top:var(--space-10);
+}
+@media(max-width:768px){.solution-grid{grid-template-columns:1fr;gap:var(--space-8)}}
 .sol-main h3{
-  font-weight:700;
-  font-size:1.125rem;
-  color:var(--text);
-  margin-bottom:0.75rem;
+  font-weight:600;font-size:var(--text-lg);
+  color:var(--text-0);
+  margin-bottom:var(--space-4);
 }
 .sol-main p{
-  color:var(--text-secondary);
-  font-size:0.9375rem;
-  line-height:1.6;
-  margin-bottom:1.5rem;
+  color:var(--text-1);font-size:var(--text-sm);
+  line-height:var(--leading-normal);
+  margin-bottom:var(--space-6);
 }
+.sol-main p code{color:var(--accent);font-size:var(--text-sm)}
 .sol-code{
   position:relative;
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:1.25rem;
+  background:var(--bg-1);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius-md);
+  padding:var(--space-5) var(--space-6);
   overflow:hidden;
 }
 .sol-code code{
-  display:block;
-  font-size:0.8125rem;
-  color:var(--text);
-  line-height:1.8;
-  white-space:pre;
-  overflow-x:auto;
+  display:block;font-size:var(--text-sm);
+  color:var(--text-0);line-height:1.9;
+  white-space:pre;overflow-x:auto;
 }
-.sol-code code .kw{color:var(--accent)}
-.sol-code code .str{color:var(--warning)}
-.sol-code code .cmt{color:var(--text-secondary)}
+.sol-code .kw{color:var(--accent)}
+.sol-code .str{color:var(--warn)}
+.sol-code .cmt{color:var(--text-2)}
 .copy-btn{
-  position:absolute;
-  top:0.75rem;right:0.75rem;
-  background:var(--border);
-  border:none;
-  border-radius:calc(var(--radius) - 2px);
-  padding:0.375rem 0.625rem;
-  color:var(--text-secondary);
-  font-family:inherit;
-  font-size:0.6875rem;
-  cursor:pointer;
+  position:absolute;top:var(--space-3);right:var(--space-3);
+  background:var(--bg-2);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius-sm);
+  padding:var(--space-1) var(--space-3);
+  color:var(--text-2);font-family:var(--font-sans);
+  font-size:0.6875rem;font-weight:500;cursor:pointer;
   opacity:0;
-  transition:opacity 160ms var(--ease-out),color 160ms var(--ease-out),transform 160ms var(--ease-out);
+  transition:all 200ms var(--ease-out);
 }
-.sol-code:hover .copy-btn,
-.sol-code:focus-within .copy-btn{opacity:1}
-.copy-btn:hover{color:var(--text)}
-.copy-btn:active{transform:scale(0.97)}
-.copy-btn:focus-visible{opacity:1;outline:2px solid var(--accent);outline-offset:2px}
-.sol-side{display:flex;flex-direction:column;gap:1.25rem}
+.sol-code:hover .copy-btn,.sol-code:focus-within .copy-btn{opacity:1}
+.copy-btn:hover{color:var(--text-0);border-color:var(--border-2)}
+.copy-btn:active{transform:scale(0.95)}
+
+.sol-side{display:flex;flex-direction:column;gap:var(--space-4)}
 .sol-item{
-  padding:1.25rem;
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  background:var(--surface);
+  padding:var(--space-5);
+  border:1px solid var(--border-0);
+  border-radius:var(--radius-md);
+  background:var(--bg-1);
+  transition:border-color 300ms var(--ease-out),transform 300ms var(--ease-out);
+}
+.sol-item:hover{
+  border-color:var(--border-1);
+  transform:translateY(-1px);
 }
 .sol-item h4{
-  font-weight:700;
-  font-size:0.9375rem;
-  color:var(--text);
-  margin-bottom:0.5rem;
+  font-weight:600;font-size:var(--text-sm);
+  color:var(--text-0);
+  margin-bottom:var(--space-2);
 }
 .sol-item p{
-  color:var(--text-secondary);
-  font-size:0.8125rem;
-  line-height:1.6;
+  color:var(--text-1);font-size:var(--text-sm);
+  line-height:var(--leading-normal);
 }
-.sol-item code{
-  color:var(--accent);
-  font-size:0.8125rem;
-}
+.sol-item code{color:var(--accent);font-size:var(--text-xs)}
 
-/* === 5. KNOWN LIMITATIONS === */
-.limitations{
-  padding:0 0 6rem;
-}
-.limitations-band{
-  max-width:80rem;
-  margin:0 auto;
-  padding:0 1rem;
-}
+/* ===== 5. KNOWN LIMITATIONS ===== */
+.limitations{padding:0 0 var(--space-24);position:relative;z-index:1}
+.limitations-band{max-width:var(--max-w);margin:0 auto;padding:0 var(--space-6)}
 .limitations-inner{
-  background:#1a1510;
-  border-left:3px solid var(--warning);
-  border-radius:0 var(--radius) var(--radius) 0;
-  padding:1.5rem 2rem;
+  background:var(--warn-soft);
+  border:1px solid rgba(251,191,36,0.12);
+  border-radius:var(--radius-lg);
+  padding:var(--space-6) var(--space-8);
 }
 .limitations-inner h2{
-  font-weight:800;
-  font-size:1.125rem;
-  color:var(--warning);
-  letter-spacing:-0.02em;
-  margin-bottom:1rem;
+  font-weight:600;font-size:var(--text-base);
+  color:var(--warn);
+  letter-spacing:var(--tracking-normal);
+  margin-bottom:var(--space-4);
+  display:flex;align-items:center;gap:var(--space-2);
+}
+.limitations-inner h2 svg{
+  width:18px;height:18px;stroke:var(--warn);fill:none;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;
 }
 .limitations-inner p{
-  color:var(--text-secondary);
-  font-size:0.875rem;
-  line-height:1.7;
+  color:var(--text-1);font-size:var(--text-sm);
+  line-height:var(--leading-normal);
 }
-.limitations-inner p + p{
-  margin-top:1rem;
-  padding-top:1rem;
-  border-top:1px solid rgba(245,166,35,0.15);
+.limitations-inner p+p{
+  margin-top:var(--space-4);
+  padding-top:var(--space-4);
+  border-top:1px solid rgba(251,191,36,0.10);
 }
-.limitations-inner code{
-  color:var(--warning);
-  font-size:0.8125rem;
-}
+.limitations-inner code{color:var(--warn);font-size:var(--text-sm)}
 
-/* === 6. INSTALL === */
-.install{
-  padding:6rem 0;
-}
-.install h2{
-  font-weight:800;
-  font-size:clamp(1.5rem,3vw,2rem);
-  letter-spacing:-0.03em;
-  line-height:1.1;
-  color:var(--text);
-  margin-bottom:2.5rem;
-}
+/* ===== 6. INSTALL ===== */
+.install{padding:var(--space-24) 0;position:relative;z-index:1}
 .install-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:1.5rem;
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:var(--space-6);margin-top:var(--space-10);
 }
-@media(max-width:768px){
-  .install-grid{grid-template-columns:1fr}
-}
+@media(max-width:768px){.install-grid{grid-template-columns:1fr}}
 .install-block h3{
-  font-weight:700;
-  font-size:0.9375rem;
-  color:var(--text);
-  margin-bottom:0.75rem;
+  font-weight:600;font-size:var(--text-sm);
+  color:var(--text-0);margin-bottom:var(--space-3);
+  display:flex;align-items:center;gap:var(--space-2);
+}
+.install-method-tag{
+  font-size:var(--text-xs);font-weight:600;
+  padding:var(--space-1) var(--space-2);
+  border-radius:100px;
+  background:var(--accent-soft);
+  color:var(--accent);
+}
+.install-method-tag.alt{
+  background:var(--bg-2);
+  color:var(--text-1);
 }
 .install-code{
   position:relative;
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:1.25rem;
-  margin-bottom:1rem;
+  background:var(--bg-1);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius-md);
+  padding:var(--space-5) var(--space-6);
 }
 .install-code code{
-  display:block;
-  font-size:0.8125rem;
-  color:var(--text);
-  line-height:1.8;
-  white-space:pre;
-  overflow-x:auto;
+  display:block;font-size:var(--text-sm);
+  color:var(--text-0);line-height:1.9;
+  white-space:pre;overflow-x:auto;
 }
-.install-code code .cmt{color:var(--text-secondary)}
-.install-code code .kw{color:var(--accent)}
-.install-code code .str{color:var(--warning)}
-.install-uninstall{
-  margin-top:2rem;
-  padding:1rem 1.25rem;
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
+.install-code .cmt{color:var(--text-2)}
+.install-code .kw{color:var(--accent)}
+.install-code .str{color:var(--warn)}
+.install-note{
+  margin-top:var(--space-10);
+  padding:var(--space-4) var(--space-5);
+  background:var(--bg-1);
+  border:1px solid var(--border-0);
+  border-radius:var(--radius-md);
 }
-.install-uninstall code{
-  font-size:0.8125rem;
-  color:var(--text-secondary);
+.install-note code{
+  font-family:var(--font-mono);
+  font-size:var(--text-xs);
+  color:var(--text-2);
 }
 .install-link{
-  display:inline-block;
-  margin-top:1rem;
-  font-size:0.8125rem;
+  display:inline-flex;align-items:center;gap:var(--space-1);
+  margin-top:var(--space-4);
+  font-size:var(--text-xs);
+  color:var(--text-2);
+  transition:color 200ms var(--ease-out);
 }
+.install-link:hover{color:var(--accent)}
+.install-link svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.5}
 
-/* === 7. TOOLS === */
-.tools{
-  padding:6rem 0;
+/* ===== 7. TOOLS ===== */
+.tools{padding:var(--space-24) 0;position:relative;z-index:1}
+.tools-list{
+  display:grid;gap:var(--space-6);
+  max-width:44rem;margin-top:var(--space-10);
 }
-.tools h2{
-  font-weight:800;
-  font-size:clamp(1.5rem,3vw,2rem);
-  letter-spacing:-0.03em;
-  line-height:1.1;
-  color:var(--text);
-  margin-bottom:2.5rem;
-}
-.tools dl{
+.tool-item{
   display:grid;
-  gap:1.5rem;
-  max-width:42rem;
+  grid-template-columns:auto 1fr;
+  gap:var(--space-4) var(--space-5);
+  align-items:start;
+  padding:var(--space-5);
+  border:1px solid var(--border-0);
+  border-radius:var(--radius-md);
+  background:var(--bg-1);
+  transition:border-color 300ms var(--ease-out);
 }
-.tools dt{
-  font-weight:700;
-  font-size:1rem;
-  color:var(--text);
-  margin-bottom:0.25rem;
+.tool-item:hover{border-color:var(--border-1)}
+.tool-item dt{
+  font-weight:600;font-size:var(--text-sm);
+  color:var(--text-0);
+  grid-column:1/2;
+  font-family:var(--font-mono);
+  padding-top:1px;
 }
-.tools dd{
-  color:var(--text-secondary);
-  font-size:0.875rem;
-  line-height:1.6;
-  margin-bottom:0;
+.tool-item dd{
+  grid-column:2/3;
+  color:var(--text-1);font-size:var(--text-sm);
+  line-height:var(--leading-normal);
 }
-.tools dd code{
-  color:var(--accent);
-  font-size:0.8125rem;
-}
+.tool-item dd code{color:var(--accent);font-size:var(--text-xs)}
 
-/* === 8. FOOTER === */
+/* ===== 8. FOOTER ===== */
 .footer{
-  border-top:1px solid var(--border);
-  padding:2rem 0;
+  border-top:1px solid var(--border-0);
+  padding:var(--space-8) 0;
+  position:relative;z-index:1;
 }
 .footer-inner{
-  max-width:80rem;
-  margin:0 auto;
-  padding:0 1rem;
-  display:flex;
-  flex-wrap:wrap;
-  align-items:center;
-  justify-content:space-between;
-  gap:1rem;
+  max-width:var(--max-w);margin:0 auto;
+  padding:0 var(--space-6);
+  display:flex;flex-wrap:wrap;align-items:center;
+  justify-content:space-between;gap:var(--space-4);
 }
 .footer-links{
-  display:flex;
-  flex-wrap:wrap;
-  gap:1.5rem;
+  display:flex;flex-wrap:wrap;gap:var(--space-6);
   list-style:none;
 }
 .footer-links a{
-  color:var(--text-secondary);
-  font-size:0.8125rem;
+  color:var(--text-2);font-size:var(--text-xs);font-weight:500;
+  transition:color 200ms var(--ease-out);
 }
-.footer-links a:hover{color:var(--text)}
+.footer-links a:hover{color:var(--text-0)}
 .footer-license{
-  color:var(--text-secondary);
-  font-size:0.75rem;
+  color:var(--text-2);font-size:var(--text-xs);
 }
 
-/* === TOAST === */
+/* ===== TOAST ===== */
 .toast{
-  position:fixed;
-  bottom:1.5rem;
-  right:1.5rem;
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:0.75rem 1.25rem;
-  color:var(--text);
-  font-size:0.8125rem;
+  position:fixed;bottom:var(--space-6);right:var(--space-6);
+  background:var(--bg-2);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius-md);
+  padding:var(--space-3) var(--space-5);
+  color:var(--text-0);font-size:var(--text-sm);font-weight:500;
   z-index:200;
-  opacity:0;
-  transform:translateY(8px);
-  transition:opacity 200ms var(--ease-out),transform 200ms var(--ease-out);
+  opacity:0;transform:translateY(8px) scale(0.96);
+  transition:all 250ms var(--ease-spring);
   pointer-events:none;
+  backdrop-filter:blur(12px);
 }
 .toast.show{
-  opacity:1;
-  transform:translateY(0);
+  opacity:1;transform:translateY(0) scale(1);
   pointer-events:auto;
+}
+.toast-icon{
+  display:inline-block;width:6px;height:6px;
+  border-radius:50%;background:var(--accent);
+  margin-right:var(--space-2);
+  vertical-align:middle;
+}
+
+/* ===== DIVIDER ===== */
+.section-divider{
+  width:100%;max-width:var(--max-w);margin:0 auto;
+  padding:0 var(--space-6);
+  position:relative;z-index:1;
+}
+.section-divider hr{
+  border:none;height:1px;
+  background:var(--border-0);
 }
 </style>
 </head>
 <body>
 
+<!-- BACKGROUND GLOW -->
+<div class="bg-glow"></div>
+<div class="bg-glow-2"></div>
+
+<!-- SCROLL PROGRESS -->
+<div class="scroll-progress" id="scrollProgress"></div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <!-- NAV -->
-<nav class="nav">
+<nav class="nav" id="nav">
   <div class="nav-inner">
-    <a href="#" class="nav-logo">CopyQ <span>Fix</span></a>
+    <a href="#" class="nav-logo">
+      <span class="nav-logo-icon">CQ</span>
+      CopyQ <span style="color:var(--accent)">Fix</span>
+    </a>
     <ul class="nav-links">
       <li><a href="#problem">Problem</a></li>
       <li><a href="#architecture">Architecture</a></li>
       <li><a href="#solution">Solution</a></li>
       <li><a href="#install">Install</a></li>
+      <li><a href="#tools">Tools</a></li>
     </ul>
-    <a href="https://github.com/marktantongco/copyq-linux-fix" class="nav-gh-btn" target="_blank" rel="noopener">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    <a href="https://github.com/marktantongco/copyq-linux-fix" class="nav-gh" target="blank" rel="noopener">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       GitHub
     </a>
     <button class="nav-hamburger" id="hamburger" aria-label="Toggle menu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
     </button>
   </div>
 </nav>
@@ -702,42 +815,75 @@ img{display:block;max-width:100%}
   <a href="#architecture">Architecture</a>
   <a href="#solution">Solution</a>
   <a href="#install">Install</a>
+  <a href="#tools">Tools</a>
   <a href="https://github.com/marktantongco/copyq-linux-fix" target="_blank" rel="noopener">GitHub</a>
 </div>
 
 <!-- HERO -->
 <section class="hero">
   <div class="section">
-    <h1>CopyQ on Ubuntu 26.04 Wayland</h1>
-    <p class="hero-sub">CopyQ clipboard manager breaks on GNOME 50 because mutter removed the wl-data-control protocol. This is the fix.</p>
-    <div class="hero-ctas">
-      <a href="#install" class="btn btn-primary">Install Now</a>
+    <div class="hero-badge reveal">
+      <span class="hero-badge-dot"></span>
+      Ubuntu 26.04 LTS Compatible
+    </div>
+    <h1 class="reveal reveal-delay-1">Clipboard management on <span class="accent">Wayland</span>, finally working.</h1>
+    <p class="hero-sub reveal reveal-delay-2">CopyQ breaks on GNOME 50 because mutter removed the <code style="color:var(--text-2);font-size:var(--text-sm)">wl-data-control</code> protocol. This is the fix — XWayland bridge, Flatpak v16, one installer.</p>
+    <div class="hero-ctas reveal reveal-delay-3">
+      <a href="#install" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Install Now
+      </a>
       <a href="https://github.com/marktantongco/copyq-linux-fix" class="btn btn-ghost" target="_blank" rel="noopener">View on GitHub</a>
     </div>
-    <div class="hero-cmd-card">
+    <div class="hero-cmd-card glow-border reveal reveal-delay-3">
       <code><span class="cmt"># Run CopyQ through XWayland bridge</span>
 <span class="kw">QT_QPA_PLATFORM</span>=xcb <span class="kw">GDK_BACKEND</span>=<span class="str">x11</span> copyq</code>
+    </div>
+    <div class="hero-stats reveal reveal-delay-3">
+      <div>
+        <div class="hero-stat-value">v16.0.0</div>
+        <div class="hero-stat-label">Flatpak Version</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">GNOME 50</div>
+        <div class="hero-stat-label">Target Desktop</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">7</div>
+        <div class="hero-stat-label">Script Modules</div>
+      </div>
     </div>
   </div>
 </section>
 
+<!-- DIVIDER -->
+<div class="section-divider"><hr></div>
+
 <!-- PROBLEM -->
 <section class="problem" id="problem">
-  <div class="section reveal">
-    <h2>Ubuntu 26.04 broke clipboard managers</h2>
+  <div class="section">
+    <div class="section-label reveal">Root Cause</div>
+    <h2 class="section-title reveal reveal-delay-1">Ubuntu 26.04 broke clipboard managers</h2>
+    <p class="section-desc reveal reveal-delay-2">The first Wayland-only LTS release removed critical clipboard protocols, leaving popular managers unable to function without workarounds.</p>
     <div class="problem-cards">
-      <div class="problem-card">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="problem-card reveal reveal-delay-1">
+        <div class="problem-card-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
         <h3>GNOME 50 Wayland-Only</h3>
-        <p>Ubuntu 26.04 ships GNOME 50 as its first LTS release with no Xorg session option. All applications run under the Wayland compositor.</p>
+        <p>Ubuntu 26.04 ships GNOME 50 as its first LTS release with no Xorg session. All applications run under the Wayland compositor, breaking X11-dependent clipboard tools.</p>
       </div>
-      <div class="problem-card">
-        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="problem-card reveal reveal-delay-2">
+        <div class="problem-card-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
         <h3>No wl-data-control</h3>
-        <p>Mutter in GNOME 50 removed the wl-data-control protocol as a privacy decision. Qt clipboard managers cannot register for clipboard events without it.</p>
+        <p>Mutter removed the wl-data-control protocol as a privacy decision. Qt clipboard managers cannot register for clipboard events without it — this is the core blocker.</p>
       </div>
-      <div class="problem-card">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      <div class="problem-card reveal reveal-delay-3">
+        <div class="problem-card-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </div>
         <h3>PPA Stuck at v13</h3>
         <p>The official CopyQ PPA has not been updated past v13. The Flatpak build ships v16.0.0 with Wayland improvements that still need the XWayland bridge to function.</p>
       </div>
@@ -747,15 +893,17 @@ img{display:block;max-width:100%}
 
 <!-- ARCHITECTURE -->
 <section class="arch" id="architecture">
-  <div class="section reveal">
-    <h2>How the clipboard flows on Wayland</h2>
-    <div class="arch-flow">
+  <div class="section">
+    <div class="section-label reveal">Data Flow</div>
+    <h2 class="section-title reveal reveal-delay-1">How the clipboard flows on Wayland</h2>
+    <p class="section-desc reveal reveal-delay-2">The fix routes clipboard data through the XWayland compatibility layer. Mutter proxies X11 selections to and from native Wayland clients transparently.</p>
+    <div class="arch-flow reveal">
       <div class="arch-node">
         <div class="node-label">Firefox / GNOME Terminal</div>
         <div class="node-proto">native Wayland client</div>
       </div>
       <div class="arch-arrow">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="4 3"/></svg>
+        <svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/></svg>
         <span class="arrow-label">wl-data-device</span>
       </div>
       <div class="arch-node">
@@ -763,15 +911,15 @@ img{display:block;max-width:100%}
         <div class="node-proto">GNOME Shell Wayland</div>
       </div>
       <div class="arch-arrow">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="4 3"/></svg>
+        <svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/></svg>
         <span class="arrow-label">XWayland proxy</span>
       </div>
-      <div class="arch-node">
+      <div class="arch-node active">
         <div class="node-label">XWayland Bridge</div>
         <div class="node-proto">QT_QPA_PLATFORM=xcb</div>
       </div>
       <div class="arch-arrow">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="4 3"/></svg>
+        <svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/></svg>
         <span class="arrow-label">X11 selection</span>
       </div>
       <div class="arch-node">
@@ -779,22 +927,27 @@ img{display:block;max-width:100%}
         <div class="node-proto">Qt xcb clipboard client</div>
       </div>
     </div>
-    <div class="arch-note">
-      The GNOME Shell extension for native clipboard monitoring <code>cannot register from Flatpak sandbox</code>. The XWayland bridge is the only working path for managed clipboard access.
+    <div class="arch-note reveal">
+      The GNOME Shell extension for native clipboard monitoring <code>cannot register from Flatpak sandbox</code>. The XWayland bridge is the only working path for managed clipboard access on GNOME 50.
     </div>
   </div>
 </section>
 
+<!-- DIVIDER -->
+<div class="section-divider"><hr></div>
+
 <!-- SOLUTION -->
 <section class="solution" id="solution">
-  <div class="section reveal">
-    <h2>The fix</h2>
-    <div class="solution-grid">
+  <div class="section">
+    <div class="section-label reveal">Implementation</div>
+    <h2 class="section-title reveal reveal-delay-1">The fix</h2>
+    <p class="section-desc reveal reveal-delay-2">Two environment variables force CopyQ through the XWayland compatibility layer, restoring full clipboard monitoring capability.</p>
+    <div class="solution-grid reveal">
       <div class="sol-main">
         <h3>XWayland Bridge</h3>
         <p>Setting <code>QT_QPA_PLATFORM=xcb</code> forces Qt applications through the XWayland compatibility layer. Mutter still proxies X11 selections to Wayland clients, so CopyQ intercepts clipboard data through the X11 selection protocol.</p>
-        <p>Adding <code>GDK_BACKEND=x11</code> ensures GTK applications within the CopyQ workflow also route through XWayland for consistent clipboard behavior.</p>
-        <div class="sol-code">
+        <p>Adding <code>GDK_BACKEND=x11</code> ensures GTK applications within the CopyQ workflow also route through XWayland for consistent clipboard behavior across toolkits.</p>
+        <div class="sol-code glow-border">
           <button class="copy-btn" data-copy="QT_QPA_PLATFORM=xcb GDK_BACKEND=x11 copyq" aria-label="Copy command">Copy</button>
           <code><span class="cmt"># Launch CopyQ via XWayland bridge</span>
 <span class="kw">QT_QPA_PLATFORM</span>=xcb \
@@ -805,11 +958,15 @@ img{display:block;max-width:100%}
       <div class="sol-side">
         <div class="sol-item">
           <h4>Flatpak v16.0.0</h4>
-          <p>The Flatpak build includes Wayland patches not present in the PPA. Install via Flatpak and apply the XWayland environment override.</p>
+          <p>The Flatpak build includes Wayland patches not present in the PPA. Install via Flathub and apply the XWayland environment override.</p>
         </div>
         <div class="sol-item">
           <h4>GNOME Shortcuts</h4>
           <p>Set <code>Ctrl+Alt+V</code> as the global hotkey in CopyQ preferences. GNOME handles this through XWayland key forwarding.</p>
+        </div>
+        <div class="sol-item">
+          <h4>Autostart with Delay</h4>
+          <p>A 3-second autostart delay ensures the XWayland bridge is fully initialized before CopyQ attempts clipboard registration.</p>
         </div>
       </div>
     </div>
@@ -820,20 +977,31 @@ img{display:block;max-width:100%}
 <section class="limitations" id="limitations">
   <div class="limitations-band reveal">
     <div class="limitations-inner">
-      <h2>Known limitations</h2>
-      <p>Issue <a href="https://github.com/hluk/CopyQ/issues/3587" style="color:var(--warning)" target="_blank" rel="noopener">#3587</a>: Closing the main window may stop clipboard monitoring on XWayland. Keep CopyQ minimized to the tray instead of closing the window.</p>
-      <p>The GNOME Shell extension for native clipboard monitoring cannot work inside the Flatpak sandbox. This means the XWayland bridge approach is required regardless of installation method.</p>
+      <h2>
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Known limitations
+      </h2>
+      <p>Issue <a href="https://github.com/hluk/CopyQ/issues/3587" style="color:var(--warn)" target="_blank" rel="noopener">#3587</a>: Closing the main window may stop clipboard monitoring on XWayland. Keep CopyQ minimized to the tray instead of closing the window to maintain clipboard access.</p>
+      <p>The GNOME Shell extension for native clipboard monitoring cannot work inside the Flatpak sandbox. This means the XWayland bridge approach is required regardless of installation method on GNOME 50.</p>
     </div>
   </div>
 </section>
 
+<!-- DIVIDER -->
+<div class="section-divider"><hr></div>
+
 <!-- INSTALL -->
 <section class="install" id="install">
-  <div class="section reveal">
-    <h2>Install</h2>
-    <div class="install-grid">
+  <div class="section">
+    <div class="section-label reveal">Quick Start</div>
+    <h2 class="section-title reveal reveal-delay-1">Install</h2>
+    <p class="section-desc reveal reveal-delay-2">Two methods to get CopyQ running. The modular installer handles all configuration automatically — Flatpak, overrides, shortcuts, and autostart.</p>
+    <div class="install-grid reveal">
       <div>
-        <h3>Recommended: Flatpak</h3>
+        <h3>
+          Clone and Run
+          <span class="install-method-tag">Recommended</span>
+        </h3>
         <div class="install-code">
           <button class="copy-btn" data-copy="git clone https://github.com/marktantongco/copyq-linux-fix.git
 cd copyq-linux-fix
@@ -845,7 +1013,10 @@ cd copyq-linux-fix
         </div>
       </div>
       <div>
-        <h3>Alternative: Rootless</h3>
+        <h3>
+          One-line Install
+          <span class="install-method-tag alt">Alternative</span>
+        </h3>
         <div class="install-code">
           <button class="copy-btn" data-copy="curl -fsSL https://raw.githubusercontent.com/marktantongco/copyq-linux-fix/main/install.sh | bash" aria-label="Copy command">Copy</button>
           <code><span class="cmt"># One-line install</span>
@@ -855,31 +1026,41 @@ curl -fsSL https://raw.githubusercontent.com/
         </div>
       </div>
     </div>
-    <div class="install-uninstall">
-      <code>flatpak remove com.hluk.copyq</code>
+    <div class="install-note reveal">
+      <code>./install.sh --uninstall</code> to remove all changes.
+      <span style="color:var(--text-2);font-size:var(--text-xs);margin-left:var(--space-3)">·</span>
+      <code style="margin-left:var(--space-3)">./install.sh --diagnose</code> to troubleshoot.
     </div>
-    <a href="https://github.com/marktantongco/copyq-linux-fix#troubleshooting" class="install-link" target="_blank" rel="noopener">Troubleshooting documentation</a>
+    <a href="https://github.com/marktantongco/copyq-linux-fix#troubleshooting" class="install-link reveal" target="_blank" rel="noopener">
+      Full troubleshooting documentation
+      <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </a>
   </div>
 </section>
 
+<!-- DIVIDER -->
+<div class="section-divider"><hr></div>
+
 <!-- TOOLS -->
 <section class="tools" id="tools">
-  <div class="section reveal">
-    <h2>Tools and alternatives</h2>
-    <dl>
-      <div>
+  <div class="section">
+    <div class="section-label reveal">Ecosystem</div>
+    <h2 class="section-title reveal reveal-delay-1">Tools and alternatives</h2>
+    <p class="section-desc reveal reveal-delay-2">The Wayland input landscape is evolving. These tools complement or replace CopyQ for specific use cases on Wayland-native desktops.</p>
+    <div class="tools-list reveal">
+      <div class="tool-item">
         <dt>ydotool</dt>
-        <dd>A command-line utility that simulates input events at the kernel level using <code>/dev/uinput</code>. Works on Wayland without XWayland but requires root or <code>uinput</code> group membership for the daemon.</dd>
+        <dd>Simulates input events at the kernel level using <code>/dev/uinput</code>. Works on Wayland without XWayland but requires root or <code>uinput</code> group membership for the <code>ydotoold</code> daemon. Alternative to xdotool for keyboard/macro simulation.</dd>
       </div>
-      <div>
+      <div class="tool-item">
         <dt>wl-clipboard</dt>
-        <dd>The standard Wayland clipboard CLI tool. Provides <code>wl-copy</code> and <code>wl-paste</code> commands. Suitable for scripts but does not offer a GUI or clipboard history management.</dd>
+        <dd>The standard Wayland clipboard CLI. Provides <code>wl-copy</code> and <code>wl-paste</code> for pipe-based clipboard operations. Suitable for scripts but offers no GUI, history, or management features.</dd>
       </div>
-      <div>
-        <dt>CopyQ v17 outlook</dt>
-        <dd>Upstream CopyQ is tracking native Wayland support. The v17 milestone may include a direct <code>zwp-primary-selection</code> implementation that removes the XWayland dependency entirely.</dd>
+      <div class="tool-item">
+        <dt>CopyQ v17</dt>
+        <dd>Upstream is tracking native Wayland support. The v17 milestone may include a direct <code>zwp-primary-selection</code> implementation that removes the XWayland dependency entirely on compositors that support it.</dd>
       </div>
-    </dl>
+    </div>
   </div>
 </section>
 
@@ -887,10 +1068,10 @@ curl -fsSL https://raw.githubusercontent.com/
 <footer class="footer">
   <div class="footer-inner">
     <ul class="footer-links">
-      <li><a href="https://github.com/marktantongco/copyq-linux-fix" target="_blank" rel="noopener">GitHub repo</a></li>
-      <li><a href="https://github.com/hluk/CopyQ" target="_blank" rel="noopener">CopyQ project</a></li>
+      <li><a href="https://github.com/marktantongco/copyq-linux-fix" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/hluk/CopyQ" target="_blank" rel="noopener">CopyQ Project</a></li>
       <li><a href="https://flathub.org/apps/com.hluk.copyq" target="_blank" rel="noopener">Flathub</a></li>
-      <li><a href="https://discourse.ubuntu.com/t/noble-numbat-release-notes/38957" target="_blank" rel="noopener">Ubuntu 26.04 notes</a></li>
+      <li><a href="https://github.com/hluk/CopyQ/issues/3587" target="_blank" rel="noopener">Issue #3587</a></li>
     </ul>
     <span class="footer-license">MIT License</span>
   </div>
@@ -900,7 +1081,35 @@ curl -fsSL https://raw.githubusercontent.com/
 (function(){
   var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Scroll reveal
+  // Scroll progress bar
+  var progressBar = document.getElementById('scrollProgress');
+  function updateProgress(){
+    var scrollTop = window.scrollY;
+    var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    progressBar.style.width = progress + '%';
+  }
+
+  // Nav scroll state
+  var nav = document.getElementById('nav');
+  function updateNav(){
+    nav.classList.toggle('scrolled', window.scrollY > 20);
+  }
+
+  // Scroll handler
+  var scrollTick = false;
+  window.addEventListener('scroll', function(){
+    if(!scrollTick){
+      requestAnimationFrame(function(){
+        updateProgress();
+        updateNav();
+        scrollTick = false;
+      });
+      scrollTick = true;
+    }
+  }, {passive: true});
+
+  // Scroll reveal with staggered delays
   if(!prefersReduced && 'IntersectionObserver' in window){
     var reveals = document.querySelectorAll('.reveal');
     var obs = new IntersectionObserver(function(entries){
@@ -910,7 +1119,7 @@ curl -fsSL https://raw.githubusercontent.com/
           obs.unobserve(e.target);
         }
       });
-    },{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+    },{threshold:0.08,rootMargin:'0px 0px -32px 0px'});
     reveals.forEach(function(el){obs.observe(el)});
   } else {
     document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')});
@@ -920,12 +1129,12 @@ curl -fsSL https://raw.githubusercontent.com/
   var toast = document.getElementById('toast');
   var toastTimer = null;
   function showToast(msg){
-    toast.textContent = msg;
+    toast.innerHTML = '<span class="toast-icon"></span>' + msg;
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function(){
       toast.classList.remove('show');
-    },1800);
+    },2000);
   }
 
   // Copy buttons
