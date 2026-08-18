@@ -1,7 +1,7 @@
 [Context]
 filesystems=xdg-config/gtk-3.0:ro;xdg-config/gtk-4.0:ro;xdg-config/kdeglobals:ro
 sockets=wayland
-dbus=session	alk=org.gnome.Shell;org.gnome.Shell.Screenshot;org.gnome.Shell.Extensions.CopyQClipboardMonitor
+dbus=session    talk=org.gnome.Shell;org.gnome.Shell.Screenshot;org.gnome.Shell.Extensions.CopyQClipboardMonitor
 
 [Environment]
 # v2.0: Native Wayland mode — NO XWayland forcing.

@@ -33,10 +33,12 @@ if flatpak list --app 2>/dev/null | grep -qi copyq; then
     info "Attempting to extract extension from CopyQ Flatpak..."
     if flatpak info --show-metadata com.github.hluk.copyq 2>/dev/null | grep -q "share/gnome-shell/extensions"; then
         mkdir -p "${EXTENSION_DIR}"
-        if flatpak copy-files --external com.github.hluk.copyq "/app/share/gnome-shell/extensions/${EXTENSION_UUID}" "${HOME}/.local/share/gnome-shell/extensions/" 2>/dev/null; then
+        # flatpak has no copy-files command — extract via --command
+        if flatpak run --command=sh com.github.hluk.copyq -c "cp -r /app/share/gnome-shell/extensions/${EXTENSION_UUID} /tmp/" 2>/dev/null && \
+           cp -r "/tmp/${EXTENSION_UUID}" "${HOME}/.local/share/gnome-shell/extensions/" 2>/dev/null; then
             pass "Extension extracted from Flatpak"
         else
-            warn "flatpak copy-files failed — trying manual extraction"
+            warn "Extraction from Flatpak sandbox failed — trying download"
         fi
     fi
 fi

@@ -56,7 +56,7 @@ fi
 
 # D-Bus access for GNOME extension communication (Issue #3539)
 info "Checking D-Bus access for GNOME extension..."
-if grep -q 'dbus.*alk=org.gnome.Shell' "${OVERRIDE_TARGET}" 2>/dev/null; then
+if grep -q 'dbus.*talk=org.gnome.Shell' "${OVERRIDE_TARGET}" 2>/dev/null; then
     pass "D-Bus access configured for GNOME Shell"
 else
     info "  Adding D-Bus access for GNOME Shell extension communication..."
