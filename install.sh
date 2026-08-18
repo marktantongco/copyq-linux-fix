@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Ubuntu 26.04 LTS — CopyQ + Wayland Unified Installer
+# Ubuntu 26.04 LTS — CopyQ Native Wayland Installer
 # ==============================================================================
+# CopyQ v14+ uses a GNOME Shell extension (MetaSelection D-Bus bridge) for
+# clipboard monitoring on GNOME Wayland. This installer configures native
+# Wayland mode — no XWayland forcing.
+#
 # Usage: ./install.sh [--dry-run] [--uninstall] [--diagnose] [--help]
 # ==============================================================================
 
@@ -17,14 +21,18 @@ log()  { local l="$1"; shift; echo -e "[${l}] $*" | tee -a "${LOG_FILE}"; }
 info() { log "${BLUE}INFO${NC}"  "$*"; }
 pass() { log "${GREEN}PASS${NC}"  "$*"; ((PASS++)); }
 fail() { log "${RED}FAIL${NC}"  "$*"; ((FAIL++)); }
+warn() { log "${YELLOW}WARN${NC}"  "$*"; ((WARN++)); }
 
 banner() {
     echo -e "${CYAN}${BOLD}"
     echo "  ╔═══════════════════════════════════════════════════════════╗"
-    echo "  ║   CopyQ + Wayland Unified Installer for Ubuntu 26.04  ║"
-    echo "  ║   Version 1.2.0 | GNOME 50 | Wayland-only            ║"
+    echo "  ║   CopyQ Native Wayland Installer for Ubuntu 26.04    ║"
+    echo "  ║   Version 2.0.0 | GNOME 50 | Native Wayland Mode     ║"
     echo "  ╚═══════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
+    echo -e "  ${YELLOW}v2.0 uses the GNOME Shell extension for clipboard monitoring.${NC}"
+    echo -e "  ${YELLOW}The XWayland bridge approach (v1.x) is no longer needed.${NC}"
+    echo ""
 }
 
 run_step() {
@@ -47,7 +55,8 @@ summary() {
     if [[ ${FAIL} -gt 0 ]]; then
         echo -e "${RED}Errors occurred. Log: ${LOG_FILE}${NC}"
     else
-        echo -e "${GREEN}${BOLD}Success! Log out/in, then press Ctrl+Alt+V.${NC}"
+        echo -e "${GREEN}${BOLD}Success! Log out/in to activate the GNOME Shell extension,${NC}"
+        echo -e "${GREEN}${BOLD}then press Ctrl+Alt+V to toggle CopyQ.${NC}"
     fi
     echo ""
 }
@@ -76,7 +85,7 @@ case "${MODE}" in
         echo "" > "${LOG_FILE}"
         run_step 1 "System Check"           "${SCRIPTS_DIR}/01-check-system.sh" || true
         run_step 2 "Install CopyQ"          "${SCRIPTS_DIR}/02-install-copyq.sh" || true
-        run_step 3 "Patch Environment"      "${SCRIPTS_DIR}/03-patch-environment.sh" || true
+        run_step 3 "Install GNOME Extension" "${SCRIPTS_DIR}/03-install-gnome-extension.sh" || true
         run_step 4 "Configure Flatpak"      "${SCRIPTS_DIR}/04-configure-flatpak.sh" || true
         run_step 5 "Setup Shortcuts"        "${SCRIPTS_DIR}/05-setup-shortcuts.sh" || true
         run_step 6 "Enable Autostart"       "${SCRIPTS_DIR}/06-enable-autostart.sh" || true

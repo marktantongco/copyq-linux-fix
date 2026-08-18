@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Step 4: Configure Flatpak Overrides for CopyQ
+# Step 4: Configure Flatpak Overrides for CopyQ (v2.0)
+# ==============================================================================
+# v2.0: Native Wayland mode. NO QT_QPA_PLATFORM=xcb.
+# CopyQ v14+ uses the GNOME Shell extension for clipboard monitoring.
 # ==============================================================================
 
 set -euo pipefail
@@ -21,51 +24,48 @@ flatpak list --app 2>/dev/null | grep -qi "${COPYQ_ID}" || fail "CopyQ not insta
 
 mkdir -p "${OVERRIDE_DIR}"
 
+# Backup old override if it has XWayland settings
+if [[ -f "${OVERRIDE_TARGET}" ]] && grep -q 'QT_QPA_PLATFORM=xcb' "${OVERRIDE_TARGET}"; then
+    cp "${OVERRIDE_TARGET}" "${OVERRIDE_TARGET}.v1.bak.$(date +%Y%m%d%H%M%S)"
+    warn "Backed up old v1.x override (XWayland mode)"
+fi
+
 if [[ -f "${OVERRIDE_SOURCE}" ]]; then
     cp "${OVERRIDE_SOURCE}" "${OVERRIDE_TARGET}"
-    pass "Flatpak override installed"
+    pass "Flatpak override installed (native Wayland mode)"
 else
-    warn "Override source not found — creating minimal..."
-    cat > "${OVERRIDE_TARGET}" << 'EOF'
-[Context]
-filesystems=xdg-config/gtk-3.0:ro;xdg-config/gtk-4.0:ro;xdg-config/kdeglobals:ro
-sockets=wayland;x11
-
-[Environment]
-# CRITICAL: CopyQ must use XWayland for clipboard monitoring.
-# GNOME mutter does NOT implement wl-data-control protocol.
-# These override the system-wide wayland.conf for CopyQ only.
-#
-# NOTE: XDG Desktop Portal clipboard (v1.18+) is for remote desktop
-# sessions only, NOT for third-party clipboard managers.
-#
-# WARNING (Issue #3587): QT_QPA_PLATFORM=xcb can break clipboard
-# monitoring when the main window is closed. Keep CopyQ minimized.
-QT_QPA_PLATFORM=xcb
-GDK_BACKEND=x11
-EOF
-    pass "Minimal override created"
+    fail "Override source not found: ${OVERRIDE_SOURCE}"
 fi
 
-info "Setting clipboard portal permission..."
-flatpak override --user "${COPYQ_ID}" --permission=clipboard=yes 2>&1 || warn "Clipboard permission flag not supported (ok on older Flatpak)"
+# Verify override does NOT contain XWayland forcing
+if grep -q 'QT_QPA_PLATFORM=xcb' "${OVERRIDE_TARGET}"; then
+    fail "Override still contains QT_QPA_PLATFORM=xcb — this breaks clipboard monitoring!"
+fi
 
-info "Checking for ydotool (Wayland keyboard simulation)..."
-if command -v ydotool &>/dev/null; then
-    if pgrep -x ydotoold &>/dev/null; then
-        pass "ydotool + ydotoold available (keyboard simulation works)"
-    else
-        warn "ydotool found but ydotoold daemon not running"
-        info "  Enable: systemctl --user enable --now ydotoold"
+if grep -q 'GDK_BACKEND=x11' "${OVERRIDE_TARGET}"; then
+    warn "Override contains GDK_BACKEND=x11 — removing (not needed for native Wayland)"
+    sed -i '/^GDK_BACKEND=x11$/d' "${OVERRIDE_TARGET}"
+fi
+
+# Verify critical settings
+if grep -q 'COPYQ_USE_PORTAL=1' "${OVERRIDE_TARGET}"; then
+    pass "COPYQ_USE_PORTAL=1 set (enables portal shortcuts)"
+else
+    warn "COPYQ_USE_PORTAL not set — portal shortcuts may not work"
+fi
+
+# D-Bus access for GNOME extension communication (Issue #3539)
+info "Checking D-Bus access for GNOME extension..."
+if grep -q 'dbus.*alk=org.gnome.Shell' "${OVERRIDE_TARGET}" 2>/dev/null; then
+    pass "D-Bus access configured for GNOME Shell"
+else
+    info "  Adding D-Bus access for GNOME Shell extension communication..."
+    # Ensure dbus line exists in [Context]
+    if ! grep -q '\[Context\]' "${OVERRIDE_TARGET}"; then
+        sed -i '1i\[Context]' "${OVERRIDE_TARGET}"
     fi
-else
-    info "ydotool not installed (optional — for CopyQ script keyboard simulation)"
-    info "  Install: sudo apt install ydotool && systemctl --user enable --now ydotoold"
+    warn "Manual D-Bus config may be needed — see Issue #3539"
 fi
-
-warn "NOTE: Issue #3587 — Closing CopyQ main window may stop clipboard monitoring on XWayland"
-info "  Workaround: Keep CopyQ minimized, not closed. Use tray icon."
-info "  Or enable tray-only mode in CopyQ Preferences > Appearance > Show Tray Icon"
 
 info "Override contents:"
 while IFS= read -r line; do [[ -n "${line}" ]] && echo -e "    ${line}"; done < "${OVERRIDE_TARGET}"

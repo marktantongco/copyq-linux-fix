@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Standalone Diagnostic Tool
+# Standalone Diagnostic Tool (v2.0)
 # ==============================================================================
 
 set -euo pipefail
@@ -13,9 +13,10 @@ warn() { echo -e "  ${YELLOW}[WARN]${NC} $*"; ((warn_count++)); }
 info() { echo -e "  ${BLUE}[INFO]${NC} $*"; }
 
 COPYQ_ID="com.github.hluk.copyq"
+EXTENSION_UUID="copyq-clipboard-monitor@hluk.github.com"
 
 echo -e "${CYAN}${BOLD}"
-echo "  CopyQ + Wayland Diagnostic Report"
+echo "  CopyQ Native Wayland Diagnostic Report (v2.0)"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo -e "${NC}\n"
 
@@ -23,91 +24,86 @@ echo -e "${NC}\n"
 [[ -f /etc/os-release ]] && { . /etc/os-release; info "OS: ${NAME} ${VERSION}"; } || fail "Cannot detect OS"
 
 # Desktop
-command -v gnome-shell &>/dev/null && info "Desktop: $(gnome-shell --version 2>/dev/null)" || warn "GNOME Shell not detected"
+if command -v gnome-shell &>/dev/null; then
+    gnome_ver=$(gnome-shell --version 2>/dev/null | grep -oP '\d+' | head -1)
+    info "Desktop: GNOME Shell ${gnome_ver}"
+    [[ "${gnome_ver}" -ge 48 ]] && pass "  GlobalShortcuts portal available" || warn "  GNOME <48: portal shortcuts unavailable"
+else
+    warn "GNOME Shell not detected"
+fi
 info "Session: ${XDG_SESSION_TYPE:-unknown}"
 
-# XWayland
-if pgrep -x Xwayland &>/dev/null; then
-    pass "XWayland running (PID: $(pgrep -x Xwayland | head -1))"
-else
-    warn "XWayland not detected"
-fi
-
 # CopyQ
+echo -e "\n${BOLD}── CopyQ Status ──${NC}"
 if flatpak list --app 2>/dev/null | grep -qi "${COPYQ_ID}"; then
     ver=$(flatpak list --app --columns=version 2>/dev/null | grep -i copyq | head -1 | tr -d ' ')
-    pass "CopyQ v${ver} installed"
+    major=$(echo "${ver}" | grep -oP '\d+' | head -1)
+    if [[ -n "${major}" && "${major}" -ge 14 ]]; then
+        pass "CopyQ v${ver} (v14+ — GNOME extension compatible)"
+    else
+        warn "CopyQ v${ver} — v14+ required for GNOME extension support"
+    fi
     flatpak ps 2>/dev/null | grep -qi copyq && pass "CopyQ is running" || warn "CopyQ not running"
 else
     fail "CopyQ NOT installed"
 fi
 
-# Override
+# Flatpak Override
+echo -e "\n${BOLD}── Flatpak Override ──${NC}"
 OVERRIDE="${HOME}/.local/share/flatpak/overrides/${COPYQ_ID}"
 if [[ -f "${OVERRIDE}" ]]; then
-    pass "Flatpak override exists"
+    pass "Override exists"
     echo -e "  ${CYAN}Contents:${NC}"
     while IFS= read -r line; do [[ -n "${line}" ]] && echo -e "    ${line}"; done < "${OVERRIDE}"
+    echo ""
+    if grep -q 'QT_QPA_PLATFORM=xcb' "${OVERRIDE}"; then
+        fail "  XWAYLAND FORCING DETECTED (QT_QPA_PLATFORM=xcb) — this breaks clipboard monitoring!"
+        info "  Fix: Remove QT_QPA_PLATFORM=xcb and GDK_BACKEND=x11 from override"
+        info "  Run: ./install.sh to reconfigure for v2.0 (native Wayland)"
+    else
+        pass "  No XWayland forcing (correct)"
+    fi
+    grep -q 'COPYQ_USE_PORTAL' "${OVERRIDE}" && pass "  Portal shortcuts configured" || warn "  COPYQ_USE_PORTAL not set"
 else
-    fail "No Flatpak override"
+    fail "No Flatpak override found"
 fi
 
-# Environment
-ENV_FILE="${HOME}/.config/environment.d/wayland.conf"
-if [[ -f "${ENV_FILE}" ]]; then
-    pass "wayland.conf exists"
-    for var in GDK_BACKEND QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT; do
-        fval=$(grep "^${var}=" "${ENV_FILE}" 2>/dev/null | cut -d= -f2 || echo "")
-        eval="${val}=$(printenv "${var}" 2>/dev/null || echo "(unset)")
-        [[ "${eval}" != "(unset)" ]] && pass "  ${var}=${eval} (active)" || \
-            [[ -n "${fval}" ]] && warn "  ${var}=${fval} (relogin needed)" || fail "  ${var} not set"
-    done
+# GNOME Shell Extension (CRITICAL)
+echo -e "\n${BOLD}── GNOME Shell Extension (CRITICAL) ──${NC}"
+EXT_DIR="${HOME}/.local/share/gnome-shell/extensions/${EXTENSION_UUID}"
+if [[ -f "${EXT_DIR}/metadata.json" ]]; then
+    pass "Extension installed at ${EXT_DIR}"
 else
-    fail "wayland.conf NOT found"
+    fail "Extension NOT installed — clipboard monitoring will NOT work!"
+    info "  The CopyQ GNOME Shell extension is MANDATORY for GNOME Wayland."
+    info "  Install: ./install.sh (Step 3)"
+fi
+
+if command -v gnome-extensions &>/dev/null; then
+    if gnome-extensions list 2>/dev/null | grep -q "${EXTENSION_UUID}"; then
+        pass "Extension registered with GNOME Shell"
+        ext_state=$(gnome-extensions show "${EXTENSION_UUID}" 2>/dev/null | grep -oP 'State\s*:\s*\K\w+' || echo "unknown")
+        [[ "${ext_state}" == "ENABLED" ]] && pass "  Extension is ENABLED" || warn "  Extension state: ${ext_state}"
+        ext_err=$(gnome-extensions show "${EXTENSION_UUID}" 2>/dev/null | grep -oP 'Error\s*:\s*\K.*' || echo "")
+        [[ -n "${ext_err}" && "${ext_err}" != "None" && "${ext_err}" != "" ]] && fail "  Extension error: ${ext_err}"
+    else
+        warn "Extension not registered — requires relogin after installation"
+    fi
+else
+    warn "gnome-extensions CLI not available — check Extensions app manually"
 fi
 
 # Shortcuts
+echo -e "\n${BOLD}── Shortcuts ──${NC}"
 CUSTOM_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
+found=false
 for i in 0 1 2 3; do
     sname=$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" name 2>/dev/null || echo "")
-    [[ -n "${sname}" && "${sname}" != "''" ]] && pass "Shortcut: ${sname}"
+    [[ -n "${sname}" && "${sname}" != "''" ]] && { pass "Shortcut: ${sname}"; found=true; }
 done
+[[ "${found}" == "false" ]] && info "No gsettings shortcuts (GNOME 48+ uses portal shortcuts instead)"
 
 # Autostart
-[[ -f "${HOME}/.config/autostart/com.github.hluk.copyq.desktop" ]] && pass "Autostart exists" || fail "No autostart"
-
-# Display
-echo -n "  DISPLAY="; [[ -n "${DISPLAY:-}" ]] && pass "${DISPLAY} (XWayland reachable)" || warn "(unset)"
-
-# Session type and XWayland status
-info "XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-unknown}"
-pgrep -x Xwayland &>/dev/null && pass "XWayland running (PID: $(pgrep -x Xwayland | head -1))" || warn "XWayland not running"
-
-# Flatpak override environment check
-if [[ -f "${OVERRIDE}" ]]; then
-    grep -q 'QT_QPA_PLATFORM=xcb' "${OVERRIDE}" && pass "Override: QT_QPA_PLATFORM=xcb" || fail "Override: QT_QPA_PLATFORM not set to xcb"
-    grep -q 'GDK_BACKEND=x11' "${OVERRIDE}" && pass "Override: GDK_BACKEND=x11" || fail "Override: GDK_BACKEND not set to x11"
-fi
-
-# ydotool (optional)
-if command -v ydotool &>/dev/null; then
-    if pgrep -x ydotoold &>/dev/null; then
-        pass "ydotool + ydotoold available (keyboard simulation works)"
-    else
-        warn "ydotool found but ydotoold daemon not running"
-        info "  Enable: systemctl --user enable --now ydotoold"
-    fi
-else
-    info "ydotool not installed (optional — for CopyQ script keyboard simulation)"
-fi
-
-# GNOME CopyQ Clipboard Monitor extension
-if gnome-extensions list 2>/dev/null | grep -qi "copyq-clipboard-monitor\|copyq_clipboard_monitor"; then
-    warn "GNOME CopyQ Clipboard Monitor extension detected"
-    warn "  This extension is for native/X11 CopyQ only — it does NOT work with Flatpak CopyQ"
-    info "  Consider disabling it to avoid confusion"
-else
-    info "GNOME CopyQ Clipboard Monitor extension not installed (expected for Flatpak setup)"
-fi
+[[ -f "${HOME}/.config/autostart/com.github.hluk.copyq.desktop" ]] && pass "Autostart exists" || warn "No autostart entry"
 
 echo -e "\n  ${GREEN}Pass:${pass_count}${NC} ${YELLOW}Warn:${warn_count}${NC} ${RED}Fail:${fail_count}${NC}\n"

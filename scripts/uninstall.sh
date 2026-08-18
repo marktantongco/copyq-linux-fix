@@ -1,40 +1,68 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Uninstall: Remove CopyQ and all configurations
+# Uninstall Script (v2.0)
 # ==============================================================================
 
 set -euo pipefail
 
-GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
-info() { echo -e "  ${BLUE}[DONE]${NC} $*"; }
-warn() { echo -e "  ${YELLOW}[SKIP]${NC} $*"; }
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
+info() { echo -e "  ${BLUE}[INFO]${NC} $*"; }
+pass() { echo -e "  ${GREEN}[PASS]${NC} $*"; }
+warn() { echo -e "  ${YELLOW}[WARN]${NC} $*"; }
 
 COPYQ_ID="com.github.hluk.copyq"
-echo -e "${BOLD}Uninstalling CopyQ + all configs...${NC}\n"
+EXTENSION_UUID="copyq-clipboard-monitor@hluk.github.com"
 
-flatpak list --app 2>/dev/null | grep -qi "${COPYQ_ID}" && { flatpak uninstall "${COPYQ_ID}" -y 2>&1; info "CopyQ removed"; } || warn "CopyQ not installed"
+echo -e "${YELLOW}${BOLD}Uninstalling CopyQ Native Wayland configuration...${NC}\n"
 
-OVR="${HOME}/.local/share/flatpak/overrides/${COPYQ_ID}"
-[[ -f "${OVR}" ]] && { rm -f "${OVR}"; info "Override removed"; }
+# Disable and remove GNOME Shell extension
+if command -v gnome-extensions &>/dev/null; then
+    if gnome-extensions list 2>/dev/null | grep -q "${EXTENSION_UUID}"; then
+        info "Disabling GNOME Shell extension..."
+        gnome-extensions disable "${EXTENSION_UUID}" 2>/dev/null || true
+        pass "Extension disabled"
+    fi
+fi
+EXT_DIR="${HOME}/.local/share/gnome-shell/extensions/${EXTENSION_UUID}"
+if [[ -d "${EXT_DIR}" ]]; then
+    rm -rf "${EXT_DIR}"
+    pass "Extension files removed"
+fi
 
-ENV="${HOME}/.config/environment.d/wayland.conf"
-[[ -f "${ENV}" ]] && { rm -f "${ENV}"; info "wayland.conf removed"; }
+# Remove Flatpak override
+OVERRIDE="${HOME}/.local/share/flatpak/overrides/${COPYQ_ID}"
+if [[ -f "${OVERRIDE}" ]]; then
+    rm -f "${OVERRIDE}"
+    pass "Flatpak override removed"
+fi
 
-AS="${HOME}/.config/autostart/com.github.hluk.copyq.desktop"
-[[ -f "${AS}" ]] && { rm -f "${AS}"; info "Autostart removed"; }
+# Remove autostart
+AUTOSTART="${HOME}/.config/autostart/com.github.hluk.copyq.desktop"
+if [[ -f "${AUTOSTART}" ]]; then
+    rm -f "${AUTOSTART}"
+    pass "Autostart entry removed"
+fi
 
+# Remove GNOME shortcuts
 CUSTOM_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
-for i in 0 1 2 3 4; do
-    scmd=$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" command 2>/dev/null || echo "")
-    [[ "${scmd}" == *copyq* ]] && {
-        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" name 2>/dev/null || true
-        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" command 2>/dev/null || true
-        gsettings reset org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${CUSTOM_PATH}/custom${i}" binding 2>/dev/null || true
-        info "Shortcut custom${i} removed"
-    }
+for i in 0 1 2 3; do
+    path="${CUSTOM_PATH}/custom${i}"
+    sname=$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${path}" name 2>/dev/null || echo "")
+    if [[ -n "${sname}" && "${sname}" == *"CopyQ"* ]]; then
+        gsettings reset-recursively org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"${path}" 2>/dev/null || true
+        pass "Removed shortcut: ${sname}"
+    fi
 done
+gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "[]" 2>/dev/null || true
 
-rm -f "${HOME}/.config/environment.d/wayland.conf.bak."* "${HOME}/.config/autostart/com.github.hluk.copyq.desktop.bak."* 2>/dev/null
+# Remove environment config
+ENV_FILE="${HOME}/.config/environment.d/wayland.conf"
+if [[ -f "${ENV_FILE}" ]]; then
+    rm -f "${ENV_FILE}"
+    pass "wayland.conf removed"
+fi
 
-echo -e "\n${GREEN}${BOLD}Uninstall complete.${NC}"
-echo -e "${YELLOW}Flatpak runtimes kept. Remove with: flatpak uninstall --unused${NC}\n"
+# Ask about CopyQ itself
+echo -e "\n${YELLOW}CopyQ Flatpak app is still installed. To remove:${NC}"
+echo -e "  flatpak uninstall ${COPYQ_ID}"
+echo -e "\n${GREEN}Configuration removed. CopyQ app preserved.${NC}\n"
